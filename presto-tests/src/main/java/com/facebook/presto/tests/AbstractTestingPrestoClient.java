@@ -18,6 +18,7 @@ import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryStatusInfo;
+import com.facebook.presto.client.QuerySubmission;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedObjectName;
@@ -28,6 +29,7 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import okhttp3.OkHttpClient;
 import org.intellij.lang.annotations.Language;
@@ -43,11 +45,14 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractTestingPrestoClient<T>
         implements Closeable
 {
+    private static final JsonCodec<QuerySubmission> QUERY_SUBMISSION_CODEC = jsonCodec(QuerySubmission.class);
+
     private final TestingPrestoServer prestoServer;
     private final Session defaultSession;
 
@@ -80,7 +85,7 @@ public abstract class AbstractTestingPrestoClient<T>
 
         ClientSession clientSession = toClientSession(session, prestoServer.getBaseUrl(), new Duration(2, TimeUnit.MINUTES));
 
-        try (StatementClient client = new StatementClient(httpClient, clientSession, sql)) {
+        try (StatementClient client = new StatementClient(httpClient, QUERY_SUBMISSION_CODEC, clientSession, sql)) {
             while (client.isRunning()) {
                 resultsSession.addResults(client.currentStatusInfo(), client.currentData());
                 client.advance();

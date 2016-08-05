@@ -102,12 +102,19 @@ public class StatementClient
     private final TimeZoneKey timeZone;
     private final Duration requestTimeoutNanos;
     private final String user;
+    private final JsonCodec<QuerySubmission> querySubmissionCodec;
 
     private final AtomicReference<State> state = new AtomicReference<>(State.RUNNING);
 
     public StatementClient(OkHttpClient httpClient, ClientSession session, String query)
     {
+        this(httpClient, jsonCodec(QuerySubmission.class), session, query);
+    }
+
+    public StatementClient(OkHttpClient httpClient, JsonCodec<QuerySubmission> querySubmissionCodec, ClientSession session, String query)
+    {
         requireNonNull(httpClient, "httpClient is null");
+        requireNonNull(querySubmissionCodec, "querySubmissionCodec is null");
         requireNonNull(session, "session is null");
         requireNonNull(query, "query is null");
 
@@ -116,6 +123,7 @@ public class StatementClient
         this.query = query;
         this.requestTimeoutNanos = session.getClientRequestTimeout();
         this.user = session.getUser();
+        this.querySubmissionCodec = querySubmissionCodec;
 
         Request request = buildQueryRequest(session, query);
 
@@ -137,7 +145,9 @@ public class StatementClient
         url = url.newBuilder().encodedPath("/v1/statement").build();
 
         Request.Builder builder = prepareRequest(url)
-                .post(RequestBody.create(MEDIA_TYPE_JSON, query));
+                .post(RequestBody.create(MEDIA_TYPE_JSON, querySubmissionCodec.toJson(new QuerySubmission(query, session.getPreparedStatements()))));
+
+        builder.addHeader(PrestoHeaders.PRESTO_PREPARED_STATEMENT_IN_BODY, "true");
 
         if (session.getSource() != null) {
             builder.addHeader(PRESTO_SOURCE, session.getSource());
@@ -162,11 +172,6 @@ public class StatementClient
         Map<String, String> property = session.getProperties();
         for (Entry<String, String> entry : property.entrySet()) {
             builder.addHeader(PRESTO_SESSION, entry.getKey() + "=" + entry.getValue());
-        }
-
-        Map<String, String> statements = session.getPreparedStatements();
-        for (Entry<String, String> entry : statements.entrySet()) {
-            builder.addHeader(PRESTO_PREPARED_STATEMENT, urlEncode(entry.getKey()) + "=" + urlEncode(entry.getValue()));
         }
 
         builder.addHeader(PRESTO_TRANSACTION_ID, session.getTransactionId() == null ? "NONE" : session.getTransactionId());

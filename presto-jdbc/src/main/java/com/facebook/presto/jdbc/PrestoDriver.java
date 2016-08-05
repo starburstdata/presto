@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.facebook.presto.client.QuerySubmission;
+import io.airlift.json.JsonCodec;
 import okhttp3.OkHttpClient;
 
 import java.io.Closeable;
@@ -86,7 +88,7 @@ public class PrestoDriver
 
         OkHttpClient.Builder builder = httpClient.newBuilder();
         uri.setupClient(builder);
-        QueryExecutor executor = new QueryExecutor(builder.build());
+        QueryExecutor executor = new QueryExecutor(JsonCodec.jsonCodec(QuerySubmission.class), builder.build());
 
         return new PrestoConnection(uri, executor);
     }

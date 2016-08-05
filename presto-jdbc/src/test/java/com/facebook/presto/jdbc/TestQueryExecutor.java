@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.facebook.presto.client.QuerySubmission;
 import com.facebook.presto.client.ServerInfo;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
@@ -63,7 +64,7 @@ public class TestQueryExecutor
                 .addHeader(CONTENT_TYPE, "application/json")
                 .setBody(SERVER_INFO_CODEC.toJson(expected)));
 
-        QueryExecutor executor = new QueryExecutor(new OkHttpClient());
+        QueryExecutor executor = new QueryExecutor(JsonCodec.jsonCodec(QuerySubmission.class), new OkHttpClient());
 
         ServerInfo actual = executor.getServerInfo(server.url("/v1/info").uri());
         assertEquals(actual.getEnvironment(), "test");

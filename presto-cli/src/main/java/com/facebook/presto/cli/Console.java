@@ -15,12 +15,14 @@ package com.facebook.presto.cli;
 
 import com.facebook.presto.cli.ClientOptions.OutputFormat;
 import com.facebook.presto.client.ClientSession;
+import com.facebook.presto.client.QuerySubmission;
 import com.facebook.presto.sql.parser.StatementSplitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.airlift.airline.Command;
 import io.airlift.airline.HelpOption;
+import io.airlift.json.JsonCodec;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
 import io.airlift.units.Duration;
@@ -125,6 +127,7 @@ public class Console
         try (QueryRunner queryRunner = new QueryRunner(
                 session,
                 clientOptions.debug,
+                JsonCodec.jsonCodec(QuerySubmission.class),
                 Optional.ofNullable(clientOptions.socksProxy),
                 Optional.ofNullable(clientOptions.httpProxy),
                 Optional.ofNullable(clientOptions.keystorePath),

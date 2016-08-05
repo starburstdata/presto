@@ -16,6 +16,7 @@ package com.facebook.presto.jdbc;
 import com.facebook.presto.client.ClientException;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.JsonResponse;
+import com.facebook.presto.client.QuerySubmission;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.client.StatementClient;
 import io.airlift.json.JsonCodec;
@@ -34,15 +35,17 @@ class QueryExecutor
     private static final JsonCodec<ServerInfo> SERVER_INFO_CODEC = jsonCodec(ServerInfo.class);
 
     private final OkHttpClient httpClient;
+    private final JsonCodec<QuerySubmission> querySubmissionCodec;
 
-    public QueryExecutor(OkHttpClient httpClient)
+    public QueryExecutor(JsonCodec<QuerySubmission> querySubmissionCodec, OkHttpClient httpClient)
     {
+        this.querySubmissionCodec = requireNonNull(querySubmissionCodec, "querySubmissionCodec is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
     }
 
     public StatementClient startQuery(ClientSession session, String query)
     {
-        return new StatementClient(httpClient, session, query);
+        return new StatementClient(httpClient, querySubmissionCodec, session, query);
     }
 
     public ServerInfo getServerInfo(URI server)
