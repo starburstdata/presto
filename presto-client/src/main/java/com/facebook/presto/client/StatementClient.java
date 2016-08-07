@@ -33,10 +33,7 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.Closeable;
-import java.io.UnsupportedEncodingException;
 import java.net.URI;
-import java.net.URLDecoder;
-import java.net.URLEncoder;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -46,15 +43,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_DEALLOCATED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT_IN_BODY;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_CATALOG;
@@ -278,6 +273,7 @@ public class StatementClient
         return new Request.Builder()
                 .addHeader(PRESTO_USER, user)
                 .addHeader(USER_AGENT, USER_AGENT_VALUE)
+                .addHeader(PRESTO_PREPARED_STATEMENT_IN_BODY, "true")
                 .url(url);
     }
 
@@ -362,17 +358,6 @@ public class StatementClient
         }
         resetSessionProperties.addAll(headers.values(PRESTO_CLEAR_SESSION));
 
-        for (String entry : headers.values(PRESTO_ADDED_PREPARE)) {
-            List<String> keyValue = SESSION_HEADER_SPLITTER.splitToList(entry);
-            if (keyValue.size() != 2) {
-                continue;
-            }
-            addedPreparedStatements.put(urlDecode(keyValue.get(0)), urlDecode(keyValue.get(1)));
-        }
-        for (String entry : headers.values(PRESTO_DEALLOCATED_PREPARE)) {
-            deallocatedPreparedStatements.add(urlDecode(entry));
-        }
-
         String startedTransactionId = headers.get(PRESTO_STARTED_TRANSACTION_ID);
         if (startedTransactionId != null) {
             this.startedTransactionId.set(startedTransactionId);
@@ -380,6 +365,9 @@ public class StatementClient
         if (headers.get(PRESTO_CLEAR_TRANSACTION_ID) != null) {
             clearTransactionId.set(true);
         }
+
+        this.addedPreparedStatements.putAll(results.getAddedPreparedStatements());
+        this.deallocatedPreparedStatements.addAll(results.getDeallocatedPreparedStatements());
 
         currentResults.set(results);
     }
@@ -428,26 +416,6 @@ public class StatementClient
                 .delete()
                 .build();
         httpClient.newCall(request).enqueue(new NullCallback());
-    }
-
-    private static String urlEncode(String value)
-    {
-        try {
-            return URLEncoder.encode(value, "UTF-8");
-        }
-        catch (UnsupportedEncodingException e) {
-            throw new AssertionError(e);
-        }
-    }
-
-    private static String urlDecode(String value)
-    {
-        try {
-            return URLDecoder.decode(value, "UTF-8");
-        }
-        catch (UnsupportedEncodingException e) {
-            throw new AssertionError(e);
-        }
     }
 
     private enum State

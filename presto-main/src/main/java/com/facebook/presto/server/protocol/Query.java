@@ -405,7 +405,9 @@ class Query
                 toStatementStats(queryInfo),
                 toQueryError(queryInfo),
                 queryInfo.getUpdateType(),
-                updateCount);
+                updateCount,
+                addedPreparedStatements,
+                deallocatedPreparedStatements);
 
         // cache the last results
         if (lastResult != null && lastResult.getNextUri() != null) {
