@@ -27,7 +27,10 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Streams;
 import com.google.common.io.CharStreams;
@@ -62,6 +65,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executor;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.IntPredicate;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
@@ -69,6 +73,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveSessionProperties.isForceLocalScheduling;
+import static com.facebook.presto.hive.HiveSessionProperties.isMultiFileBucketingEnabled;
 import static com.facebook.presto.hive.HiveUtil.checkCondition;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
@@ -88,6 +93,7 @@ public class BackgroundHiveSplitLoader
         implements HiveSplitLoader
 {
     private static final ListenableFuture<?> COMPLETED_FUTURE = immediateFuture(null);
+    private static final Splitter BUCKET_ID_SPLITTER = Splitter.on('_');
 
     private final Table table;
     private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
@@ -358,9 +364,20 @@ public class BackgroundHiveSplitLoader
         int bucketCount = bucketSplitInfo.getBucketCount();
 
         // list all files in the partition
-        ArrayList<LocatedFileStatus> files = new ArrayList<>(bucketCount);
+        List<LocatedFileStatus> files = new ArrayList<>(bucketCount);
+        List<Set<LocatedFileStatus>> groupedFiles = ImmutableList.of();
         try {
             Iterators.addAll(files, new HiveFileIterator(path, fileSystem, directoryLister, namenodeStats, FAIL));
+
+            // Sort FileStatus objects (instead of, e.g., fileStatus.getPath().toString). This matches org.apache.hadoop.hive.ql.metadata.Table.getSortedPaths
+            files.sort(null);
+
+            if (files.size() == bucketCount) {
+                groupedFiles = getBucketFilesSetsSingle(files);
+            }
+            else if (isMultiFileBucketingEnabled(session)) {
+                groupedFiles = getBucketFilesSetsMulti(files);
+            }
         }
         catch (NestedDirectoryNotAllowedException e) {
             // Fail here to be on the safe side. This seems to be the same as what Hive does
@@ -372,7 +389,7 @@ public class BackgroundHiveSplitLoader
         }
 
         // verify we found one file per bucket
-        if (files.size() != bucketCount) {
+        if (groupedFiles.size() != bucketCount) {
             throw new PrestoException(
                     HIVE_INVALID_BUCKET_FILES,
                     format("Hive table '%s' is corrupt. The number of files in the directory (%s) does not match the declared bucket count (%s) for partition: %s",
@@ -382,19 +399,61 @@ public class BackgroundHiveSplitLoader
                             splitFactory.getPartitionName()));
         }
 
-        // Sort FileStatus objects (instead of, e.g., fileStatus.getPath().toString). This matches org.apache.hadoop.hive.ql.metadata.Table.getSortedPaths
-        files.sort(null);
-
         // convert files internal splits
         List<InternalHiveSplit> splitList = new ArrayList<>();
         for (int bucketNumber = 0; bucketNumber < bucketCount; bucketNumber++) {
             if (bucketSplitInfo.isBucketEnabled(bucketNumber)) {
-                LocatedFileStatus file = files.get(bucketNumber);
-                splitFactory.createInternalHiveSplit(file, bucketNumber)
-                        .ifPresent(splitList::add);
+                for (LocatedFileStatus file : groupedFiles.get(bucketNumber)) {
+                    splitFactory.createInternalHiveSplit(file, bucketNumber)
+                            .ifPresent(splitList::add);
+                }
             }
         }
         return splitList;
+    }
+
+    private List<Set<LocatedFileStatus>> getBucketFilesSetsSingle(List<LocatedFileStatus> sortedFileStatuses)
+    {
+        return sortedFileStatuses.stream()
+                .map(ImmutableSet::of)
+                .collect(Collectors.toList());
+    }
+
+    private List<Set<LocatedFileStatus>> getBucketFilesSetsMulti(List<LocatedFileStatus> sortedFileStatuses)
+    {
+        ImmutableList.Builder<Set<LocatedFileStatus>> list = ImmutableList.builder();
+        ImmutableSet.Builder<LocatedFileStatus> bucketSet = ImmutableSet.builder();
+        String lastBucketId = null;
+
+        for (LocatedFileStatus fileStatus : sortedFileStatuses) {
+            String currentBucketId = getBucketId(fileStatus.getPath().getName());
+            if (lastBucketId != null && !lastBucketId.equals(currentBucketId)) {
+                list.add(bucketSet.build());
+                bucketSet = ImmutableSet.builder();
+            }
+            bucketSet.add(fileStatus);
+            lastBucketId = currentBucketId;
+        }
+        if (lastBucketId != null) {
+            list.add(bucketSet.build());
+        }
+        return list.build();
+    }
+
+    private String getBucketId(String fileName)
+    {
+        // this matches the observed Hive's behaviour during insert. Then files are named using M/R fremwork using
+        // XXXXXXXX_Y_SUFFIX pattern where:
+        // - XXXXXXXX - is task id
+        // - Y - is attempt id
+        // - SUFFIX - is optional copy_N suffix
+
+        // this method will only be used if number of files in directory does not match number of partitions
+        // even if multi file bucketing is enabled.
+
+        String bucketId = Iterables.getFirst(BUCKET_ID_SPLITTER.split(fileName), "");
+        checkState(!bucketId.isEmpty(), "Got empty string as bucket id");
+        return bucketId;
     }
 
     private static List<Path> getTargetPathsFromSymlink(FileSystem fileSystem, Path symlinkDir)
