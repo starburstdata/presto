@@ -11,6 +11,7 @@ Presto Documentation
     security
     admin
     connector
+    community_connector
     functions
     language
     sql
