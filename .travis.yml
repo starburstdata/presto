@@ -106,7 +106,7 @@ script:
   - |
     if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
       presto-product-tests/bin/run_on_docker.sh \
-        multinode-tls-ldap -g smoke,cli,group-by,join,tls,ldap -x simba_jdbc
+        multinode-tls-ldap -g smoke,cli,group-by,join,tls
     fi
   - |
     if [[ -v HIVE_TESTS ]]; then
