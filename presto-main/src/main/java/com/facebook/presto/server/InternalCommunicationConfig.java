@@ -22,6 +22,8 @@ public class InternalCommunicationConfig
     private boolean httpsRequired;
     private String keyStorePath;
     private String keyStorePassword;
+    private String internalLdapCommunicationUser;
+    private String internalLdapCommunicationPassword;
 
     private String kerberosPrincipal;
     private String kerberosServiceName;
@@ -148,6 +150,30 @@ public class InternalCommunicationConfig
     public InternalCommunicationConfig setKerberosCredentialCache(File kerberosCredentialCache)
     {
         this.kerberosCredentialCache = kerberosCredentialCache;
+        return this;
+    }
+
+    public String getInternalLdapCommunicationUser()
+    {
+        return internalLdapCommunicationUser;
+    }
+
+    @Config("internal-communication.authentication.ldap.user")
+    public InternalCommunicationConfig setInternalLdapCommunicationUser(String internalLdapCommunicationUser)
+    {
+        this.internalLdapCommunicationUser = internalLdapCommunicationUser;
+        return this;
+    }
+
+    public String getInternalLdapCommunicationPassword()
+    {
+        return internalLdapCommunicationPassword;
+    }
+
+    @Config("internal-communication.authentication.ldap.password")
+    public InternalCommunicationConfig setInternalLdapCommunicationPassword(String internalLdapCommunicationPassword)
+    {
+        this.internalLdapCommunicationPassword = internalLdapCommunicationPassword;
         return this;
     }
 }

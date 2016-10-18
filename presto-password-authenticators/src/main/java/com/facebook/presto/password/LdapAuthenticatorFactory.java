@@ -18,15 +18,11 @@ import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.google.inject.Injector;
 import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
-import io.airlift.http.client.BasicAuthRequestFilter;
 
 import java.util.Map;
 
-import static com.facebook.presto.password.LdapConfig.INTERNAL_LDAP_PASSWORD_CONFIG;
-import static com.facebook.presto.password.LdapConfig.INTERNAL_LDAP_USER_CONFIG;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 
 public class LdapAuthenticatorFactory
         implements PasswordAuthenticatorFactory
@@ -45,10 +41,6 @@ public class LdapAuthenticatorFactory
                     binder -> {
                         configBinder(binder).bindConfig(LdapConfig.class);
                         binder.bind(LdapAuthenticator.class).in(Scopes.SINGLETON);
-
-                        if (config.get(INTERNAL_LDAP_USER_CONFIG) != null) {
-                            httpClientBinder(binder).bindGlobalFilter(new BasicAuthRequestFilter(config.get(INTERNAL_LDAP_USER_CONFIG), config.get(INTERNAL_LDAP_PASSWORD_CONFIG)));
-                        }
                     });
 
             Injector injector = app

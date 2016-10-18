@@ -166,6 +166,7 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.server.EmbeddedDiscoveryModule;
+import io.airlift.http.client.BasicAuthRequestFilter;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.spnego.KerberosConfig;
 import io.airlift.slice.Slice;
@@ -250,6 +251,10 @@ public class ServerMainModule
             config.setKeyStorePath(internalCommunicationConfig.getKeyStorePath());
             config.setKeyStorePassword(internalCommunicationConfig.getKeyStorePassword());
         });
+        if (internalCommunicationConfig.getInternalLdapCommunicationUser() != null) {
+            checkArgument(internalCommunicationConfig.getInternalLdapCommunicationPassword() != null, "ldap password must be set");
+            httpClientBinder(binder).bindGlobalFilter(new BasicAuthRequestFilter(internalCommunicationConfig.getInternalLdapCommunicationUser(), internalCommunicationConfig.getInternalLdapCommunicationPassword()));
+        }
 
         if (internalCommunicationConfig.isKerberosEnabled()) {
             File kerberosConfig = internalCommunicationConfig.getKerberosConfig();
