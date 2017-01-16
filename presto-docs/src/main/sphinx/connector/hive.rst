@@ -53,6 +53,8 @@ for your Hive metastore Thrift service:
     connector.name=hive-hadoop2
     hive.metastore.uri=thrift://example.net:9083
 
+Use ``presto-admin`` to deploy the connector file. See :doc:`../presto-admin/installation/presto-catalog-installation`.
+
 Multiple Hive Clusters
 ^^^^^^^^^^^^^^^^^^^^^^
 
