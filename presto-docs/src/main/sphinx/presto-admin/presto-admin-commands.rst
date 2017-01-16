@@ -12,7 +12,7 @@ catalog add
     presto-admin catalog add [<name>]
 
 This command is used to deploy catalog configurations to the Presto cluster.
-`Catalog configurations <https://prestodb.io/docs/current/connector.html>`_ are
+Catalog configurations are
 kept in the configuration directory ``~/.prestoadmin/catalog``
 
 To add a catalog using ``presto-admin``, first create a configuration file in
@@ -158,7 +158,7 @@ configuration deploy
 
     presto-admin configuration deploy [coordinator|workers]
 
-This command deploys `Presto configuration files <https://prestodb.io/docs/current/installation/deployment.html>`_
+This command deploys Presto configuration files
 onto the cluster. ``presto-admin`` uses different configuration directories for
 worker and coordinator configurations so that you can easily create different
 configurations for your coordinator and worker nodes. Create a
