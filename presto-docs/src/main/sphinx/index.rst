@@ -10,6 +10,7 @@ Presto Documentation
     system-requirements
     docker
     installation
+    Presto Admin <presto-admin/user-guide>
     security
     admin
     connector
