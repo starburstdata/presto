@@ -15,7 +15,7 @@ Configuration
 -------------
 
 To configure the JMX connector, create a catalog properties file
-``etc/catalog/jmx.properties`` with the following contents:
+``~/.prestoadmin/catalog/jmx.properties`` with the following contents:
 
 .. code-block:: none
 

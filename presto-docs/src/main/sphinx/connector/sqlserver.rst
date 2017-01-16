@@ -11,7 +11,7 @@ Configuration
 -------------
 
 To configure the SQL Server connector, create a catalog properties file
-in ``etc/catalog`` named, for example, ``sqlserver.properties``, to
+in ``~/.prestoadmin/catalog`` named, for example, ``sqlserver.properties``, to
 mount the SQL Server connector as the ``sqlserver`` catalog.
 Create the file with the following contents, replacing the
 connection properties as appropriate for your setup:
@@ -31,7 +31,7 @@ a SQL Server server. Thus, if you have multiple SQL Server databases,
 or want to connect to multiple instances of the SQL Server, you must configure
 multiple catalogs, one for each instance.
 
-To add another catalog, simply add another properties file to ``etc/catalog``
+To add another catalog, simply add another properties file to ``~/.prestoadmin/catalog``
 with a different name (making sure it ends in ``.properties``). For example,
 if you name the property file ``sales.properties``, Presto will create a
 catalog named ``sales`` using the configured connector.

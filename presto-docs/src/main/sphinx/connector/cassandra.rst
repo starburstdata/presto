@@ -13,7 +13,7 @@ Configuration
 -------------
 
 To configure the Cassandra connector, create a catalog properties file
-``etc/catalog/cassandra.properties`` with the following contents,
+``~/.prestoadmin/catalog/cassandra.properties`` with the following contents,
 replacing ``host1,host2`` with a comma-separated list of the Cassandra
 nodes used to discovery the cluster topology:
 
@@ -29,7 +29,7 @@ Multiple Cassandra Clusters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can have as many catalogs as you need, so if you have additional
-Cassandra clusters, simply add another properties file to ``etc/catalog``
+Cassandra clusters, simply add another properties file to ``~/.prestoadmin/catalog``
 with a different name (making sure it ends in ``.properties``). For
 example, if you name the property file ``sales.properties``, Presto
 will create a catalog named ``sales`` using the configured connector.

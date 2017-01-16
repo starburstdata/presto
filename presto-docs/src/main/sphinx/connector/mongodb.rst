@@ -12,7 +12,7 @@ Configuration
 -------------
 
 To configure the MongoDB connector, create a catalog properties file
-``etc/catalog/mongodb.properties`` with the following contents,
+``~/.prestoadmin/catalog/mongodb.properties`` with the following contents,
 replacing the properties as appropriate:
 
 .. code-block:: none
@@ -24,7 +24,7 @@ Multiple MongoDB Clusters
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can have as many catalogs as you need, so if you have additional
-MongoDB clusters, simply add another properties file to ``etc/catalog``
+MongoDB clusters, simply add another properties file to ``~/.prestoadmin/catalog``
 with a different name (making sure it ends in ``.properties``). For
 example, if you name the property file ``sales.properties``, Presto
 will create a catalog named ``sales`` using the configured connector.
