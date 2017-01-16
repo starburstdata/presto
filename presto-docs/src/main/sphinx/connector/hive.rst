@@ -43,9 +43,9 @@ Configuration
 The Hive connector supports Apache Hadoop 2.x and derivative distributions
 including Cloudera CDH 5 and Hortonworks Data Platform (HDP).
 
-Create ``etc/catalog/hive.properties`` with the following contents
-to mount the ``hive-hadoop2`` connector as the ``hive`` catalog,
-replacing ``example.net:9083`` with the correct host and port
+Create ``~/.prestoadmin/catalog/hive.properties`` with the following
+contents to mount the ``hive-hadoop2`` connector as the ``hive``
+catalog, replacing ``example.net:9083`` with the correct host and port
 for your Hive metastore Thrift service:
 
 .. code-block:: none
@@ -57,7 +57,7 @@ Multiple Hive Clusters
 ^^^^^^^^^^^^^^^^^^^^^^
 
 You can have as many catalogs as you need, so if you have additional
-Hive clusters, simply add another properties file to ``etc/catalog``
+Hive clusters, simply add another properties file to ``~/.prestoadmin/catalog``
 with a different name (making sure it ends in ``.properties``). For
 example, if you name the property file ``sales.properties``, Presto
 will create a catalog named ``sales`` using the configured connector.

@@ -11,7 +11,7 @@ Configuration
 -------------
 
 To configure the Redshift connector, create a catalog properties file
-in ``etc/catalog`` named, for example, ``redshift.properties``, to
+in ``~/.prestoadmin/catalog`` named, for example, ``redshift.properties``, to
 mount the Redshift connector as the ``redshift`` catalog.
 Create the file with the following contents, replacing the
 connection properties as appropriate for your setup:
@@ -31,7 +31,7 @@ a Redshift cluster. Thus, if you have multiple Redshift databases,
 or want to connect to multiple Redshift clusters, you must configure
 multiple instances of the Redshift connector.
 
-To add another catalog, simply add another properties file to ``etc/catalog``
+To add another catalog, simply add another properties file to ``~/.prestoadmin/catalog``
 with a different name (making sure it ends in ``.properties``). For example,
 if you name the property file ``sales.properties``, Presto will create a
 catalog named ``sales`` using the configured connector.

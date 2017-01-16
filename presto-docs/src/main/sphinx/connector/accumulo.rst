@@ -36,7 +36,7 @@ that is located at `https://github.com/bloomberg/presto-accumulo <https://github
 Connector Configuration
 -----------------------
 
-Create ``etc/catalog/accumulo.properties``
+Create ``~/.prestoadmin/catalog/accumulo.properties``
 to mount the ``accumulo`` connector as the ``accumulo`` catalog,
 replacing the ``accumulo.xxx`` properties as required:
 

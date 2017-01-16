@@ -45,7 +45,7 @@ Configuration
 -------------
 
 To configure the Memory connector, create a catalog properties file
-``etc/catalog/memory.properties`` with the following contents:
+``~/.prestoadmin/catalog/memory.properties`` with the following contents:
 
 .. code-block:: none
 

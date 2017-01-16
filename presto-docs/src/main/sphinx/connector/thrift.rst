@@ -16,7 +16,7 @@ Configuration
 -------------
 
 To configure the Thrift connector, create a catalog properties file
-``etc/catalog/thrift.properties`` with the following content,
+``~/.prestoadmin/catalog/thrift.properties`` with the following content,
 replacing the properties as appropriate:
 
 .. code-block:: none
@@ -28,7 +28,7 @@ Multiple Thrift Systems
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 You can have as many catalogs as you need, so if you have additional
-Thrift systems to connect to, simply add another properties file to ``etc/catalog``
+Thrift systems to connect to, simply add another properties file to ``~/.prestoadmin/catalog``
 with a different name (making sure it ends in ``.properties``).
 
 Configuration Properties

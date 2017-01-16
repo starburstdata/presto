@@ -10,7 +10,7 @@ Configuration
 -------------
 
 To configure the MySQL connector, create a catalog properties file
-in ``etc/catalog`` named, for example, ``mysql.properties``, to
+in ``~/.prestoadmin/catalog`` named, for example, ``mysql.properties``, to
 mount the MySQL connector as the ``mysql`` catalog.
 Create the file with the following contents, replacing the
 connection properties as appropriate for your setup:
@@ -26,7 +26,7 @@ Multiple MySQL Servers
 ^^^^^^^^^^^^^^^^^^^^^^
 
 You can have as many catalogs as you need, so if you have additional
-MySQL servers, simply add another properties file to ``etc/catalog``
+MySQL servers, simply add another properties file to ``~/.prestoadmin/catalog``
 with a different name (making sure it ends in ``.properties``). For
 example, if you name the property file ``sales.properties``, Presto
 will create a catalog named ``sales`` using the configured connector.
