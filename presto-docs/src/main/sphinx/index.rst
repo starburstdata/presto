@@ -9,6 +9,7 @@ Presto Documentation
     overview
     system-requirements
     installation
+    Presto Admin <presto-admin/user-guide>
     security
     admin
     connector
