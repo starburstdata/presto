@@ -7,6 +7,7 @@ Presto Documentation
     :numbered: 2
 
     overview
+    system-requirements
     installation
     security
     admin
