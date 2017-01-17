@@ -8,18 +8,11 @@ an Amazon Web Services (AWS) EMR.
 Installation on an AWS EMR
 **************************
 
-Install and manage Presto manually on an AWS EMR in the Amazon cloud.
+Install and manage Presto manually on an AWS EMR in the Amazon cloud. Before installing Presto on an AWS EMR cluster, review the caveats summarized in the following document: :doc:`Setting up Presto Admin on an Amazon EMR Cluster <presto-admin/emr>`. Additional administration information can be found here: :doc:`aws/emr`.
 
 | Download the Presto RPM, :maven_download:`server-rpm`, from https://www.starburstdata.com/download
 |
-| Before installing Preston on an AWS EMR cluster, review the caveats summarized in the following document:
-| :doc:`Setting up Presto Admin on an Amazon EMR Cluster <presto-admin/emr>`
-|
-|
 | The following installation procedures contain notes or sections specific to installing Presto on an Amazon Web Services EMR cluster. These are the notes summarized in the above document.
-| For a detailed explanation of all of the commands and their options, see
-| :doc:`Comprehensive Presto Admin User Guide <presto-admin/user-guide>`
-|
 
 .. toctree::
     :maxdepth: 1
@@ -32,4 +25,3 @@ Install and manage Presto manually on an AWS EMR in the Amazon cloud.
         Adding a Catalog <presto-admin/installation/presto-catalog-installation.rst>
         Configuring Presto <presto-admin/installation/presto-configuration.rst>
         Troubleshooting <presto-admin/installation/troubleshooting-installation.rst>
-

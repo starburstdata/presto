@@ -12,3 +12,4 @@ Administration
     admin/queue
     admin/resource-groups
     admin/dist-sort
+    aws/emr
