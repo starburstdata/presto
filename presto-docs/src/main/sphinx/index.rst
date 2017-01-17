@@ -8,13 +8,17 @@ Presto Documentation
 
     overview
     system-requirements
+    getting-started
     docker
-    installation
+    server-installation-cluster-manual
+    server-installation-aws-emr-manual
+    client
     Presto Admin <presto-admin/user-guide>
     security
     admin
     connector
     community_connector
+    installation
     functions
     language
     sql

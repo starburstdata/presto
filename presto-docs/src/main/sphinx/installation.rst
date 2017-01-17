@@ -1,13 +1,11 @@
-************
-Installation
-************
+*********************************
+Community Supported Functionality
+*********************************
 
 .. toctree::
     :maxdepth: 1
 
-    installation/deployment
-    installation/cli
-    installation/jdbc
+    Manual Tarball Installation <installation/deployment>
     installation/verifier
     installation/benchmark-driver
     installation/tableau
