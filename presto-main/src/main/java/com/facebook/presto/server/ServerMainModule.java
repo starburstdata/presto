@@ -140,6 +140,7 @@ import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.FinalizerService;
+import com.facebook.presto.util.KerberosPrincipal;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
@@ -239,10 +240,9 @@ public class ServerMainModule
         if (internalCommunicationConfig.isKerberosEnabled()) {
             File kerberosConfig = internalCommunicationConfig.getKerberosConfig();
             File kerberosKeytab = internalCommunicationConfig.getKerberosKeytab();
-            String kerberosPrincipal = internalCommunicationConfig.getKerberosPrincipal();
+            KerberosPrincipal principal = KerberosPrincipal.valueOf(internalCommunicationConfig.getKerberosPrincipal());
             String kerberosServiceName = internalCommunicationConfig.getKerberosServiceName();
             checkArgument(kerberosConfig != null, "kerberos config must be set");
-            checkArgument(kerberosPrincipal != null, "kerberos principal must be set");
             checkArgument(kerberosServiceName != null, "kerberos service name must be set");
 
             configBinder(binder).bindConfigGlobalDefaults(KerberosConfig.class, config -> {
@@ -253,7 +253,7 @@ public class ServerMainModule
             });
             configBinder(binder).bindConfigGlobalDefaults(HttpClientConfig.class, config -> {
                 config.setAuthenticationEnabled(true);
-                config.setKerberosPrincipal(kerberosPrincipal);
+                config.setKerberosPrincipal(principal.substituteHostnamePlaceholder().toString());
                 config.setKerberosRemoteServiceName(kerberosServiceName);
             });
         }
