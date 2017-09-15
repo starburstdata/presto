@@ -27,6 +27,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -374,18 +375,17 @@ public class BackgroundHiveSplitLoader
             // Sort FileStatus objects (instead of, e.g., fileStatus.getPath().toString). This matches org.apache.hadoop.hive.ql.metadata.Table.getSortedPaths
             files.sort(null);
 
-            if (files.size() == bucketCount) {
+            if (isMultiFileBucketingEnabled(session)) {
+                groupedFiles = getBucketFilesSetsMulti(files);
+            }
+            else {
                 groupedFiles = getBucketFilesSetsSingle(files);
             }
-            else if (files.size() == 0 && isEmptyBucketedPartitionsEnabled(session)) {
-                ImmutableList.Builder<Set<LocatedFileStatus>> emptyBuckets = ImmutableList.builder();
-                for (int i = 0; i < bucketCount; ++i) {
-                    emptyBuckets.add(emptySet());
-                }
-                groupedFiles = emptyBuckets.build();
-            }
-            else if (isMultiFileBucketingEnabled(session)) {
-                groupedFiles = getBucketFilesSetsMulti(files);
+
+            if (groupedFiles.size() < bucketCount && isEmptyBucketedPartitionsEnabled(session)) {
+                // Hive 1.x has either 0 or # buckets files.
+                // Hive 2.x can have anywhere between 0 and # buckets files, since it doesn't create files for empty buckets.
+                groupedFiles = fillInEmptyBuckets(groupedFiles, bucketCount);
             }
         }
         catch (NestedDirectoryNotAllowedException e) {
@@ -449,7 +449,7 @@ public class BackgroundHiveSplitLoader
         return list.build();
     }
 
-    private String getBucketId(String fileName)
+    private static String getBucketId(String fileName)
     {
         // this matches the observed Hive's behaviour during insert. Then files are named using M/R fremwork using
         // XXXXXXXX_Y_SUFFIX pattern where:
@@ -463,6 +463,27 @@ public class BackgroundHiveSplitLoader
         String bucketId = Iterables.getFirst(BUCKET_ID_SPLITTER.split(fileName), "");
         checkState(!bucketId.isEmpty(), "Got empty string as bucket id");
         return bucketId;
+    }
+
+    @VisibleForTesting
+    static List<Set<LocatedFileStatus>> fillInEmptyBuckets(List<Set<LocatedFileStatus>> bucketList, int bucketCount)
+    {
+        ImmutableList.Builder<Set<LocatedFileStatus>> completeBucketList = ImmutableList.builder();
+        int currentBucketId = 0;
+        for (Set<LocatedFileStatus> bucketFiles : bucketList) {
+            checkState(!bucketFiles.isEmpty(), "Empty bucket set found.");
+            LocatedFileStatus bucketFile = bucketFiles.iterator().next();
+            int fileBucketId = Integer.parseInt(getBucketId(bucketFile.getPath().getName()));
+            for (int i = currentBucketId; i < fileBucketId; i++) {
+                completeBucketList.add(emptySet());
+            }
+            completeBucketList.add(bucketFiles);
+            currentBucketId = fileBucketId + 1;
+        }
+        for (int i = currentBucketId; i < bucketCount; i++) {
+            completeBucketList.add(emptySet());
+        }
+        return completeBucketList.build();
     }
 
     private static List<Path> getTargetPathsFromSymlink(FileSystem fileSystem, Path symlinkDir)

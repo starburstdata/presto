@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.tests.hive;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import io.prestodb.tempto.ProductTest;
 import io.prestodb.tempto.Requirement;
 import io.prestodb.tempto.Requirements;
@@ -26,6 +28,7 @@ import io.prestodb.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
@@ -208,6 +211,32 @@ public class TestHiveBucketedTables
         enableEmptyBucketedPartitions();
         assertThat(query(format("SELECT count(*) FROM %s", tableName)))
                 .containsExactly(row(0));
+    }
+
+    @Test(groups = {HIVE_CONNECTOR})
+    public void testSelectFromIncompleteBucketedTableEmptyTablesAllowed()
+            throws SQLException
+    {
+        String tableName = mutableTableInstanceOf(BUCKETED_EMPTY_NATION).getNameInDatabase();
+        enableEmptyBucketedPartitions();
+        populateRowToHiveTable(tableName, ImmutableList.of("2", "'name'", "2", "'comment'"), Optional.empty());
+        // insert one row into nation
+        assertThat(query(format("SELECT count(*) from %s", tableName)))
+                .containsExactly(row(1));
+        assertThat(query(format("select n_nationkey from %s where n_regionkey = 2", tableName)))
+                .containsExactly(row(2));
+    }
+
+    private static void populateRowToHiveTable(String destination, List<String> values, Optional<String> partition)
+    {
+        String queryStatement = format("INSERT INTO TABLE %s" +
+                        (partition.isPresent() ? format(" PARTITION (%s) ", partition.get()) : " ") +
+                        "SELECT %s from (select 'foo') x",
+                destination, Joiner.on(",").join(values));
+
+        onHive().executeQuery("set hive.enforce.bucketing = true");
+        onHive().executeQuery("set hive.enforce.sorting = true");
+        onHive().executeQuery(queryStatement);
     }
 
     private static void enableMultiFileBucketing()
