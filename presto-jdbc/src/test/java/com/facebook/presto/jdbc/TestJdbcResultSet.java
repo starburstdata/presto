@@ -104,7 +104,7 @@ public class TestJdbcResultSet
             assertEquals(metadata.getColumnType(1), Types.INTEGER);
             assertEquals(metadata.getColumnType(2), Types.BIGINT);
             assertEquals(metadata.getColumnType(3), Types.REAL);
-            assertEquals(metadata.getColumnType(4), Types.DOUBLE);
+            assertEquals(metadata.getColumnType(4), Types.DECIMAL);
             assertEquals(metadata.getColumnType(5), Types.BOOLEAN);
             assertEquals(metadata.getColumnType(6), Types.LONGNVARCHAR);
             assertEquals(metadata.getColumnType(7), Types.DOUBLE);
@@ -117,7 +117,7 @@ public class TestJdbcResultSet
             assertEquals(rs.getObject(1), 123);
             assertEquals(rs.getObject(2), 12300000000L);
             assertEquals(rs.getObject(3), 123.45f);
-            assertEquals(rs.getObject(4), 0.1);
+            assertEquals(rs.getObject(4), new BigDecimal("0.1"));
             assertEquals(rs.getObject(5), true);
             assertEquals(rs.getObject(6), "hello");
             assertEquals(rs.getObject(7), Double.POSITIVE_INFINITY);
