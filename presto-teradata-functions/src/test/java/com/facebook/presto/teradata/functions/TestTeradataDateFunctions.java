@@ -150,7 +150,7 @@ public class TestTeradataDateFunctions
         assertFunction(
                 projection,
                 TimestampType.TIMESTAMP,
-                sqlTimestampOf(year, month, day, hour, minutes, seconds, 0, DateTimeZone.UTC, SESSION.getTimeZoneKey(), SESSION));
+                toTimestamp(new DateTime(year, month, day, hour, minutes, seconds, DATE_TIME_ZONE)));
     }
 
     private void assertDate(String projection, int year, int month, int day)
@@ -158,7 +158,7 @@ public class TestTeradataDateFunctions
         assertFunction(
                 projection,
                 DateType.DATE,
-                sqlDate(new DateTime(year, month, day, 0, 0, DateTimeZone.UTC)));
+                sqlDate(new DateTime(year, month, day, 0, 0, DATE_TIME_ZONE)));
     }
 
     private void assertVarchar(String projection, String expected)
