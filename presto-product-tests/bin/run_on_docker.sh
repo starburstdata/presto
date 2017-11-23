@@ -240,6 +240,9 @@ PRESTO_LOGS_PID=$!
 # wait until presto is started
 retry check_presto
 
+# make sure that hadoop is still alive
+check_hadoop
+
 # run product tests
 set +e
 run_product_tests "$@"
