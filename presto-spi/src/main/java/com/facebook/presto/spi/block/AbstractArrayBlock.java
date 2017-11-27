@@ -21,13 +21,13 @@ import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
 public abstract class AbstractArrayBlock
         implements Block
 {
-    protected abstract Block getValues();
+    public abstract Block getValues();
 
-    protected abstract int[] getOffsets();
+    public abstract int[] getOffsets();
 
-    protected abstract int getOffsetBase();
+    public abstract int getOffsetBase();
 
-    protected abstract boolean[] getValueIsNull();
+    public abstract boolean[] getValueIsNull();
 
     int getOffset(int position)
     {
