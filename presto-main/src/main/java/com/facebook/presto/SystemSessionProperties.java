@@ -355,7 +355,7 @@ public final class SystemSessionProperties
                         LEGACY_TIMESTAMP,
                         "Use legacy TIME & TIMESTAMP semantics",
                         featuresConfig.isLegacyTimestamp(),
-                        true),
+                        false),
                 booleanSessionProperty(
                         ENABLE_INTERMEDIATE_AGGREGATIONS,
                         "Enable the use of intermediate aggregations",

@@ -61,6 +61,7 @@ public final class TestGroups
     public static final String TLS = "tls";
     public static final String CANCEL_QUERY = "cancel_query";
     public static final String STATS_CLIENT = "stats_client";
+    public static final String TIMESTAMP = "timestamp";
 
     private TestGroups() {}
 }
