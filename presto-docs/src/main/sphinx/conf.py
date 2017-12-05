@@ -70,7 +70,7 @@ source_suffix = '.rst'
 
 master_doc = 'index'
 
-project = 'Teradata Distribution of Presto'
+project = 'Starburst Distribution of Presto'
 
 version = get_version()
 release = version
