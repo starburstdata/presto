@@ -20,6 +20,7 @@ from sphinx.errors import SphinxError
 GROUP_ID = 'com.facebook.presto'
 ARTIFACTS = {
     'server': ('presto-server', 'tar.gz', None),
+    'server-rpm': ('presto-server-rpm', 'rpm', None),
     'cli': ('presto-cli', 'jar', 'executable'),
     'jdbc': ('presto-jdbc', 'jar', None),
     'verifier': ('presto-verifier', 'jar', 'executable'),

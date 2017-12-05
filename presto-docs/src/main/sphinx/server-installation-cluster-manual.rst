@@ -11,7 +11,7 @@ Installation on a Cluster
 
 Install and manage Presto manually using Presto Admin.
 
-| Download Presto from https://www.starburstdata.com/download
+| Download the Presto RPM, :maven_download:`server-rpm`, from https://www.starburstdata.com/download
 |
 | :doc:`Installation Procedures <installation/installation-presto-admin>`
 
