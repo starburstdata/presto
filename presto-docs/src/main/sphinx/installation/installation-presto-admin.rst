@@ -22,7 +22,7 @@ Presto Admin tool is the simplest and preferred method for installing and managi
 a Presto cluster.
 
 For a detailed explanation of all of the commands and their options, see:
-Comprehensive Presto Admin User Guide <../presto-admin/user-guide.rst>
+:doc:`Comprehensive Presto Admin User Guide </presto-admin/user-guide>`
 
 
 .. toctree::
