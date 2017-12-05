@@ -17,7 +17,6 @@ import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
@@ -40,6 +39,7 @@ import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.TestingSqlTime.sqlTimestampOf;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static java.lang.Double.NEGATIVE_INFINITY;
@@ -350,7 +350,7 @@ public class TestJsonOperators
     public void testCastFromTimestamp()
     {
         assertFunction("cast(cast (null as timestamp) as JSON)", JSON, null);
-        assertFunction("CAST(from_unixtime(1) AS JSON)", JSON, "\"" + sqlTimestamp(1000).toString() + "\"");
+        assertFunction("CAST(from_unixtime(1) AS JSON)", JSON, "\"" + sqlTimestampOf((long) 1000, TEST_SESSION.toConnectorSession()).toString() + "\"");
     }
 
     @Test
@@ -384,11 +384,6 @@ public class TestJsonOperators
                 "[  1,  {}  ]",
                 "ROW(INTEGER, ARRAY<INTEGER>)",
                 "Cannot cast to row(field0 integer,field1 array(integer)). Expected a json array, but got {\n[  1,  {}  ]");
-    }
-
-    private static SqlTimestamp sqlTimestamp(long millisUtc)
-    {
-        return new SqlTimestamp(millisUtc, TEST_SESSION.getTimeZoneKey());
     }
 
     private void assertCastWithJsonParse(String json, String castSqlType, Type expectedType, Object expected)
