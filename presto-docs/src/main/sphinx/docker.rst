@@ -6,13 +6,12 @@ It is possible to run sandboxed Presto in a Docker container:
 
 .. code-block:: none
 
-    docker pull starburstdata/presto:0.188-e.0.1
     docker run -d -p 127.0.0.1:8080:8080 --name presto starburstdata/presto:0.188-e.0.1
 
 Running Presto CLI client
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-When Presto server is started you can start Presto CLI by running:
+When Presto Server is started you can start Presto CLI by running:
 
 .. code-block:: none
 
