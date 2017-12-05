@@ -9,6 +9,7 @@ Presto Documentation
     overview
     system-requirements
     getting-started
+    docker
     server-installation-cluster-manual
     server-installation-aws-emr-manual
     client
