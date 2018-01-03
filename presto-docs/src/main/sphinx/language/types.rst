@@ -133,6 +133,8 @@ String
 Date and Time
 -------------
 
+Also see :doc:`/language/time`
+
 ``DATE``
 ^^^^^^^^
 
