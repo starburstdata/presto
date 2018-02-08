@@ -183,11 +183,10 @@ public class DistributedQueryRunner
                 .put("query.client.timeout", "10m")
                 .put("exchange.http-client.idle-timeout", "1h")
                 .put("task.max-index-memory", "16kB") // causes index joins to fault load
-                .put("datasources", "system")
-                .put("distributed-index-joins-enabled", "true");
+                .put("datasources", "system");
         if (coordinator) {
             propertiesBuilder.put("node-scheduler.include-coordinator", "true");
-            propertiesBuilder.put("distributed-joins-enabled", "true");
+            propertiesBuilder.put("join-distribution-type", "REPARTITIONED");
         }
         HashMap<String, String> properties = new HashMap<>(propertiesBuilder.build());
         properties.putAll(extraProperties);
