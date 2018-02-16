@@ -531,6 +531,7 @@ public abstract class AbstractTestHiveClient
                 false,
                 true,
                 false,
+                true,
                 1000,
                 TYPE_MANAGER,
                 locationService,
