@@ -117,6 +117,7 @@ import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
+import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
@@ -655,7 +656,8 @@ public class LocalQueryRunner
                 blockEncodingSerde,
                 new PagesIndex.TestingFactory(false),
                 new JoinCompiler(),
-                new LookupJoinOperators());
+                new LookupJoinOperators(),
+                new OrderingCompiler());
 
         // plan query
         PipelineExecutionStrategy pipelineExecutionStrategy = subplan.getFragment().getPipelineExecutionStrategy();
