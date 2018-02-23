@@ -259,8 +259,7 @@ public class LocalQueryRunner
     {
         this(
                 defaultSession,
-                new FeaturesConfig()
-                        .setOptimizeMixedDistinctAggregations(true),
+                new FeaturesConfig(),
                 false,
                 false);
     }
@@ -268,8 +267,7 @@ public class LocalQueryRunner
     public LocalQueryRunner(Session defaultSession, boolean alwaysRevokeMemory)
     {
         this(defaultSession,
-                new FeaturesConfig()
-                        .setOptimizeMixedDistinctAggregations(true),
+                new FeaturesConfig(),
                 false,
                 alwaysRevokeMemory);
     }
