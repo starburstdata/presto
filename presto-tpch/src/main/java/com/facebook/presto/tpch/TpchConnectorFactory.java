@@ -33,6 +33,7 @@ public class TpchConnectorFactory
         implements ConnectorFactory
 {
     private final int defaultSplitsPerNode;
+    private final boolean predicatePushdownEnabled;
 
     public TpchConnectorFactory()
     {
@@ -41,7 +42,13 @@ public class TpchConnectorFactory
 
     public TpchConnectorFactory(int defaultSplitsPerNode)
     {
+        this(defaultSplitsPerNode, true);
+    }
+
+    public TpchConnectorFactory(int defaultSplitsPerNode, boolean predicatePushdownEnabled)
+    {
         this.defaultSplitsPerNode = defaultSplitsPerNode;
+        this.predicatePushdownEnabled = predicatePushdownEnabled;
     }
 
     @Override
@@ -74,7 +81,7 @@ public class TpchConnectorFactory
             @Override
             public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
             {
-                return new TpchMetadata(connectorId, columnNaming);
+                return new TpchMetadata(connectorId, columnNaming, predicatePushdownEnabled);
             }
 
             @Override
