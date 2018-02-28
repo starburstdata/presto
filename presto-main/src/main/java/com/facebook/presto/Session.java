@@ -325,7 +325,7 @@ public final class Session
 
     public ConnectorSession toConnectorSession()
     {
-        return new FullConnectorSession(queryId.toString(), identity.toConnectorIdentity(), source, timeZoneKey, locale, startTime, SystemSessionProperties.isLegacyTimestamp(this));
+        return new FullConnectorSession(this, identity.toConnectorIdentity());
     }
 
     public ConnectorSession toConnectorSession(ConnectorId connectorId)
@@ -333,17 +333,12 @@ public final class Session
         requireNonNull(connectorId, "connectorId is null");
 
         return new FullConnectorSession(
-                queryId.toString(),
+                this,
                 identity.toConnectorIdentity(connectorId.getCatalogName()),
-                source,
-                timeZoneKey,
-                locale,
-                startTime,
                 connectorProperties.getOrDefault(connectorId, ImmutableMap.of()),
                 connectorId,
                 connectorId.getCatalogName(),
-                sessionPropertyManager,
-                SystemSessionProperties.isLegacyTimestamp(this));
+                sessionPropertyManager);
     }
 
     public SessionRepresentation toSessionRepresentation()
