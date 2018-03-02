@@ -24,10 +24,14 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode.ExplainPlanNodeStatsAndCost;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -47,6 +51,7 @@ public class ExplainAnalyzeOperator
         private final Metadata metadata;
         private final StatsCalculator statsCalculator;
         private final CostCalculator costCalculator;
+        private final Optional<Map<PlanNodeId, ExplainPlanNodeStatsAndCost>> statsAndCosts;
         private final boolean verbose;
         private boolean closed;
 
@@ -57,6 +62,7 @@ public class ExplainAnalyzeOperator
                 Metadata metadata,
                 StatsCalculator statsCalculator,
                 CostCalculator costCalculator,
+                Optional<Map<PlanNodeId, ExplainPlanNodeStatsAndCost>> statsAndCosts,
                 boolean verbose)
         {
             this.operatorId = operatorId;
@@ -65,6 +71,7 @@ public class ExplainAnalyzeOperator
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+            this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts").map(ImmutableMap::copyOf);
             this.verbose = verbose;
         }
 
@@ -79,7 +86,7 @@ public class ExplainAnalyzeOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, ExplainAnalyzeOperator.class.getSimpleName());
-            return new ExplainAnalyzeOperator(operatorContext, queryPerformanceFetcher, metadata, statsCalculator, costCalculator, verbose);
+            return new ExplainAnalyzeOperator(operatorContext, queryPerformanceFetcher, metadata, statsCalculator, costCalculator, statsAndCosts, verbose);
         }
 
         @Override
@@ -91,7 +98,7 @@ public class ExplainAnalyzeOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new ExplainAnalyzeOperatorFactory(operatorId, planNodeId, queryPerformanceFetcher, metadata, statsCalculator, costCalculator, verbose);
+            return new ExplainAnalyzeOperatorFactory(operatorId, planNodeId, queryPerformanceFetcher, metadata, statsCalculator, costCalculator, statsAndCosts, verbose);
         }
     }
 
@@ -100,6 +107,7 @@ public class ExplainAnalyzeOperator
     private final Metadata metadata;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
+    private final Optional<Map<PlanNodeId, ExplainPlanNodeStatsAndCost>> statsAndCosts;
     private final boolean verbose;
     private boolean finishing;
     private boolean outputConsumed;
@@ -110,6 +118,7 @@ public class ExplainAnalyzeOperator
             Metadata metadata,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
+            Optional<Map<PlanNodeId, ExplainPlanNodeStatsAndCost>> statsAndCosts,
             boolean verbose)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
@@ -117,6 +126,7 @@ public class ExplainAnalyzeOperator
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+        this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts").map(ImmutableMap::copyOf);
         this.verbose = verbose;
     }
 
@@ -172,7 +182,7 @@ public class ExplainAnalyzeOperator
             return null;
         }
 
-        String plan = textDistributedPlan(queryInfo.getOutputStage().get(), metadata, statsCalculator, costCalculator, operatorContext.getSession(), verbose);
+        String plan = textDistributedPlan(queryInfo.getOutputStage().get(), metadata, statsCalculator, costCalculator, statsAndCosts, operatorContext.getSession(), verbose);
         BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1);
         VARCHAR.writeString(builder, plan);
 

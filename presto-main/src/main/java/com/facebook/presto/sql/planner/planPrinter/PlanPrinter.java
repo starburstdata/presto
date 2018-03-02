@@ -59,6 +59,7 @@ import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode.Scope;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
+import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode.ExplainPlanNodeStatsAndCost;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
@@ -145,11 +146,12 @@ public class PlanPrinter
     private final StringBuilder output = new StringBuilder();
     private final Metadata metadata;
     private final Optional<Map<PlanNodeId, PlanNodeStats>> stats;
+    private final Optional<Map<PlanNodeId, ExplainPlanNodeStatsAndCost>> explainStatsAndCosts;
     private final boolean verbose;
 
     private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session)
     {
-        this(plan, types, metadata, statsCalculator, costCalculator, session, 0, false);
+        this(plan, types, metadata, statsCalculator, costCalculator, Optional.empty(), session, 0, false);
     }
 
     private PlanPrinter(
@@ -158,11 +160,12 @@ public class PlanPrinter
             Metadata metadata,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
+            Optional<Map<PlanNodeId, ExplainPlanNodeStatsAndCost>> explainStatsAndCosts,
             Session session,
             int indent,
             boolean verbose)
     {
-        this(plan, types, metadata, new CachingStatsProvider(statsCalculator, session, types), costCalculator, session, indent, verbose);
+        this(plan, types, metadata, new CachingStatsProvider(statsCalculator, session, types), costCalculator, explainStatsAndCosts, session, indent, verbose);
     }
 
     private PlanPrinter(
@@ -171,6 +174,7 @@ public class PlanPrinter
             Metadata metadata,
             StatsProvider statsProvider,
             CostCalculator costCalculator,
+            Optional<Map<PlanNodeId, ExplainPlanNodeStatsAndCost>> explainStatsAndCosts,
             Session session,
             int indent,
             boolean verbose)
@@ -181,6 +185,7 @@ public class PlanPrinter
                 metadata,
                 statsProvider,
                 new CachingCostProvider(costCalculator, statsProvider, session, types),
+                explainStatsAndCosts,
                 session,
                 indent,
                 verbose);
@@ -192,6 +197,7 @@ public class PlanPrinter
             Metadata metadata,
             StatsProvider statsProvider,
             CostProvider costProvider,
+            Optional<Map<PlanNodeId, ExplainPlanNodeStatsAndCost>> explainStatsAndCosts,
             Session session,
             int indent,
             boolean verbose)
@@ -203,6 +209,7 @@ public class PlanPrinter
 
         this.metadata = metadata;
         this.stats = Optional.empty();
+        this.explainStatsAndCosts = explainStatsAndCosts;
         this.verbose = verbose;
 
         Visitor visitor = new Visitor(statsProvider, costProvider, types, session);
@@ -215,6 +222,7 @@ public class PlanPrinter
             Metadata metadata,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
+            Optional<Map<PlanNodeId, ExplainPlanNodeStatsAndCost>> explainStatsAndCosts,
             Session session,
             Map<PlanNodeId, PlanNodeStats> stats,
             int indent,
@@ -227,6 +235,7 @@ public class PlanPrinter
 
         this.metadata = metadata;
         this.stats = Optional.of(stats);
+        this.explainStatsAndCosts = explainStatsAndCosts;
         this.verbose = verbose;
 
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
@@ -248,30 +257,30 @@ public class PlanPrinter
 
     public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, int indent)
     {
-        return textLogicalPlan(plan, types, metadata, statsCalculator, costCalculator, session, indent, false);
+        return textLogicalPlan(plan, types, metadata, statsCalculator, costCalculator, Optional.empty(), session, indent, false);
     }
 
     public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, StatsProvider statsProvider, CostProvider costProvider, Session session, int indent)
     {
-        return new PlanPrinter(plan, types, metadata, statsProvider, costProvider, session, indent, false).toString();
+        return new PlanPrinter(plan, types, metadata, statsProvider, costProvider, Optional.empty(), session, indent, false).toString();
     }
 
-    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, int indent, boolean verbose)
+    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Optional<Map<PlanNodeId, ExplainPlanNodeStatsAndCost>> explainStatsAndCosts, Session session, int indent, boolean verbose)
     {
-        return new PlanPrinter(plan, types, metadata, statsCalculator, costCalculator, session, indent, verbose).toString();
+        return new PlanPrinter(plan, types, metadata, statsCalculator, costCalculator, explainStatsAndCosts, session, indent, verbose).toString();
     }
 
-    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, Map<PlanNodeId, PlanNodeStats> stats, int indent, boolean verbose)
+    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Optional<Map<PlanNodeId, ExplainPlanNodeStatsAndCost>> explainStatsAndCosts, Session session, Map<PlanNodeId, PlanNodeStats> stats, int indent, boolean verbose)
     {
-        return new PlanPrinter(plan, types, metadata, statsCalculator, costCalculator, session, stats, indent, verbose).toString();
+        return new PlanPrinter(plan, types, metadata, statsCalculator, costCalculator, explainStatsAndCosts, session, stats, indent, verbose).toString();
     }
 
     public static String textDistributedPlan(StageInfo outputStageInfo, Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session)
     {
-        return textDistributedPlan(outputStageInfo, metadata, statsCalculator, costCalculator, session, false);
+        return textDistributedPlan(outputStageInfo, metadata, statsCalculator, costCalculator, Optional.empty(), session, false);
     }
 
-    public static String textDistributedPlan(StageInfo outputStageInfo, Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, boolean verbose)
+    public static String textDistributedPlan(StageInfo outputStageInfo, Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Optional<Map<PlanNodeId, ExplainPlanNodeStatsAndCost>> explainStatsAndCosts, Session session, boolean verbose)
     {
         StringBuilder builder = new StringBuilder();
         List<StageInfo> allStages = outputStageInfo.getSubStages().stream()
@@ -279,7 +288,7 @@ public class PlanPrinter
                 .collect(toImmutableList());
         for (StageInfo stageInfo : allStages) {
             Map<PlanNodeId, PlanNodeStats> aggregatedStats = aggregatePlanNodeStats(stageInfo);
-            builder.append(formatFragment(metadata, statsCalculator, costCalculator, session, stageInfo.getPlan(), Optional.of(stageInfo), Optional.of(aggregatedStats), verbose));
+            builder.append(formatFragment(metadata, statsCalculator, costCalculator, explainStatsAndCosts, session, stageInfo.getPlan(), Optional.of(stageInfo), Optional.of(aggregatedStats), verbose));
         }
 
         return builder.toString();
@@ -294,7 +303,7 @@ public class PlanPrinter
     {
         StringBuilder builder = new StringBuilder();
         for (PlanFragment fragment : plan.getAllFragments()) {
-            builder.append(formatFragment(metadata, statsCalculator, costCalculator, session, fragment, Optional.empty(), Optional.empty(), verbose));
+            builder.append(formatFragment(metadata, statsCalculator, costCalculator, Optional.empty(), session, fragment, Optional.empty(), Optional.empty(), verbose));
         }
 
         return builder.toString();
@@ -302,10 +311,10 @@ public class PlanPrinter
 
     public static String textPlanFragment(PlanFragment fragment, Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session)
     {
-        return formatFragment(metadata, statsCalculator, costCalculator, session, fragment, Optional.empty(), Optional.empty(), false);
+        return formatFragment(metadata, statsCalculator, costCalculator, Optional.empty(), session, fragment, Optional.empty(), Optional.empty(), false);
     }
 
-    private static String formatFragment(Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, PlanFragment fragment, Optional<StageInfo> stageInfo, Optional<Map<PlanNodeId, PlanNodeStats>> planNodeStats, boolean verbose)
+    private static String formatFragment(Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Optional<Map<PlanNodeId, ExplainPlanNodeStatsAndCost>> explainStatsAndCosts, Session session, PlanFragment fragment, Optional<StageInfo> stageInfo, Optional<Map<PlanNodeId, PlanNodeStats>> planNodeStats, boolean verbose)
     {
         StringBuilder builder = new StringBuilder();
         builder.append(format("Fragment %s [%s]\n",
@@ -362,11 +371,11 @@ public class PlanPrinter
         builder.append(indentString(1)).append(format("Execution Flow: %s\n", fragment.getPipelineExecutionStrategy()));
 
         if (stageInfo.isPresent()) {
-            builder.append(textLogicalPlan(fragment.getRoot(), fragment.getSymbols(), metadata, statsCalculator, costCalculator, session, planNodeStats.get(), 1, verbose))
+            builder.append(textLogicalPlan(fragment.getRoot(), fragment.getSymbols(), metadata, statsCalculator, costCalculator, explainStatsAndCosts, session, planNodeStats.get(), 1, verbose))
                     .append("\n");
         }
         else {
-            builder.append(textLogicalPlan(fragment.getRoot(), fragment.getSymbols(), metadata, statsCalculator, costCalculator, session, 1, verbose))
+            builder.append(textLogicalPlan(fragment.getRoot(), fragment.getSymbols(), metadata, statsCalculator, costCalculator, explainStatsAndCosts, session, 1, verbose))
                     .append("\n");
         }
 
@@ -1391,6 +1400,14 @@ public class PlanPrinter
 
         private void printPlanNodesStatsAndCost(int indent, PlanNode... nodes)
         {
+            if (verbose && explainStatsAndCosts.isPresent() && Arrays.stream(nodes).anyMatch(node -> explainStatsAndCosts.get().containsKey(node.getId()))) {
+                String formattedStatsAndCost = Joiner.on("/").join(Arrays.stream(nodes)
+                        .filter(node -> explainStatsAndCosts.get().containsKey(node.getId()))
+                        .map(this::formatPlanNodeExplainStatsAndCosts)
+                        .collect(toImmutableList()));
+                print(indent, "CBO Cost: %s", formattedStatsAndCost);
+            }
+
             if (Arrays.stream(nodes).anyMatch(this::isKnownPlanNodeStatsOrCost)) {
                 String formattedStatsAndCost = Joiner.on("/").join(Arrays.stream(nodes)
                         .map(this::formatPlanNodeStatsAndCost)
@@ -1415,6 +1432,17 @@ public class PlanPrinter
                     formatDouble(cost.getCpuCost()),
                     formatDouble(cost.getMemoryCost()),
                     formatDouble(cost.getNetworkCost()));
+        }
+
+        private String formatPlanNodeExplainStatsAndCosts(PlanNode node)
+        {
+            ExplainPlanNodeStatsAndCost stats = explainStatsAndCosts.get().get(node.getId());
+            return String.format("{rows: %s (%s), cpu: %s, memory: %s, network: %s}",
+                    formatAsLong(stats.getOutputRowCount()),
+                    formatEstimateAsDataSize(stats.getOutputSizeInBytes()),
+                    formatDouble(stats.getCpuCost()),
+                    formatDouble(stats.getMemoryCost()),
+                    formatDouble(stats.getNetworkCost()));
         }
     }
 
