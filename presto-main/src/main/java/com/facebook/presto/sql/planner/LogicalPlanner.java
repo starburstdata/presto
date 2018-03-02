@@ -179,7 +179,7 @@ public class LogicalPlanner
         PlanNode root = underlyingPlan.getRoot();
         Scope scope = analysis.getScope(statement);
         Symbol outputSymbol = symbolAllocator.newSymbol(scope.getRelationType().getFieldByIndex(0));
-        root = new ExplainAnalyzeNode(idAllocator.getNextId(), root, outputSymbol, statement.isVerbose());
+        root = new ExplainAnalyzeNode(idAllocator.getNextId(), root, outputSymbol, Optional.empty(), statement.isVerbose());
         return new RelationPlan(root, scope, ImmutableList.of(outputSymbol));
     }
 

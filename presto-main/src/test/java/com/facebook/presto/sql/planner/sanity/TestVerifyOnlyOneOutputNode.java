@@ -24,6 +24,8 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 public class TestVerifyOnlyOneOutputNode
 {
     private final PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
@@ -56,6 +58,7 @@ public class TestVerifyOnlyOneOutputNode
                                                 Assignments.of()
                                         ), ImmutableList.of(), ImmutableList.of()
                                 ), new Symbol("a"),
+                                Optional.empty(),
                                 false),
                         ImmutableList.of(), ImmutableList.of());
         new VerifyOnlyOneOutputNode().validate(root, null, null, null, null);
