@@ -48,6 +48,7 @@ public class TestRoles
     @BeforeTestWithContext
     public void setUp()
     {
+        onPresto().executeQuery("SET ROLE admin");
         onHive().executeQuery("SET ROLE admin");
         cleanup();
     }
@@ -483,6 +484,7 @@ public class TestRoles
     @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testSetAdminRole()
     {
+        onPresto().executeQuery("SET ROLE NONE");
         QueryAssert.assertThat(onPresto().executeQuery("SELECT * FROM hive.information_schema.enabled_roles"))
                 .containsOnly(
                         row("public"));
@@ -509,6 +511,7 @@ public class TestRoles
         QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("SHOW ROLES"))
                 .failsWithMessage("Cannot show roles from catalog hive");
         onPresto().executeQuery("GRANT admin TO alice");
+        onPrestoAlice().executeQuery("SET ROLE admin");
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SHOW ROLES"))
                 .containsOnly(
                         row("public"),
@@ -519,7 +522,7 @@ public class TestRoles
     @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testShowCurrentRoles()
     {
-        QueryAssert.assertThat(onPresto().executeQuery("SHOW CURRENT ROLES"))
+        QueryAssert.assertThat(onPrestoAlice().executeQuery("SHOW CURRENT ROLES"))
                 .containsOnly(
                         row("public"));
         onPresto().executeQuery("CREATE ROLE role1");
