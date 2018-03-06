@@ -919,23 +919,6 @@ public class ThriftHiveMetastore
                 .anyMatch(privilege -> privilege.getPrivilege().equalsIgnoreCase("all"));
     }
 
-    private Set<HivePrivilegeInfo> getTablePrivileges(HivePrincipal hivePrincipal, String databaseName, String tableName)
-    {
-        if (hivePrincipal.getPrincipalType() == ROLE) {
-            return getRolePrivileges(hivePrincipal, new HiveObjectRef(TABLE, databaseName, tableName, null, null));
-        }
-        else {
-            return getUserPrivileges(hivePrincipal, new HiveObjectRef(TABLE, databaseName, tableName, null, null));
-        }
-    }
-
-    
-    // TODO inline this method
-    private Set<HivePrivilegeInfo> getRolePrivileges(HivePrincipal hivePrincipal, HiveObjectRef hiveObjectRef)
-    {
-        return listTablePrivileges(hiveObjectRef.getDatabaseName(), hiveObjectRef.getTableName(), new PrestoPrincipal(user, hivePrincipal.getUser()));
-    }
-
     @Override
     public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, PrestoPrincipal principal)
     {
