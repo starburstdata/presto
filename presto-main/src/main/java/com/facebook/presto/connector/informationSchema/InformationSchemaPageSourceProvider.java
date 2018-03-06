@@ -46,6 +46,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
+import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_ROLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
@@ -138,6 +139,9 @@ public class InformationSchemaPageSourceProvider
         }
         if (table.equals(TABLE_TABLE_PRIVILEGES)) {
             return buildTablePrivileges(session, catalog, filters);
+        }
+        if (table.equals(TABLE_ROLES)) {
+            return buildRoles(session, catalog);
         }
 
         throw new IllegalArgumentException(format("table does not exist: %s", table));
@@ -234,6 +238,15 @@ public class InformationSchemaPageSourceProvider
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_SCHEMATA));
         for (String schema : listSchemas(session, metadata, accessControl, catalogName)) {
             table.add(catalogName, schema);
+        }
+        return table.build();
+    }
+
+    private InternalTable buildRoles(Session session, String catalog)
+    {
+        InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_ROLES));
+        for (String role : metadata.listRoles(session, catalog)) {
+            table.add(role);
         }
         return table.build();
     }
