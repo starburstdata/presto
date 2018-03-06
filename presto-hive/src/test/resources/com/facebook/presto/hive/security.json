@@ -5,11 +5,17 @@
       "privileges": [
         "SELECT"
       ]
+    },
+    {
+      "user": "hive",
+      "privileges": [
+        "SELECT"
+      ]
     }
   ],
   "schemas": [
     {
-      "user": "user",
+      "user": "hive",
       "owner": true
     }
   ]
