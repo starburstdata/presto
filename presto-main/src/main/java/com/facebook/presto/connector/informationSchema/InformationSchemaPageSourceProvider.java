@@ -34,7 +34,9 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.security.GrantInfo;
+import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.PrivilegeInfo;
+import com.facebook.presto.spi.security.RoleGrant;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
@@ -45,6 +47,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_APPLICABLE_ROLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_ROLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
@@ -57,6 +60,7 @@ import static com.facebook.presto.metadata.MetadataListing.listTableColumns;
 import static com.facebook.presto.metadata.MetadataListing.listTablePrivileges;
 import static com.facebook.presto.metadata.MetadataListing.listTables;
 import static com.facebook.presto.metadata.MetadataListing.listViews;
+import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.collect.Sets.union;
 import static java.lang.String.format;
@@ -123,7 +127,7 @@ public class InformationSchemaPageSourceProvider
         return getInformationSchemaTable(session, handle.getCatalogName(), handle.getSchemaTableName(), filters);
     }
 
-    public InternalTable getInformationSchemaTable(Session session, String catalog, SchemaTableName table, Map<String, NullableValue> filters)
+    private InternalTable getInformationSchemaTable(Session session, String catalog, SchemaTableName table, Map<String, NullableValue> filters)
     {
         if (table.equals(TABLE_COLUMNS)) {
             return buildColumns(session, catalog, filters);
@@ -142,6 +146,9 @@ public class InformationSchemaPageSourceProvider
         }
         if (table.equals(TABLE_ROLES)) {
             return buildRoles(session, catalog);
+        }
+        if (table.equals(TABLE_APPLICABLE_ROLES)) {
+            return buildApplicableRoles(session, catalog);
         }
 
         throw new IllegalArgumentException(format("table does not exist: %s", table));
@@ -247,6 +254,19 @@ public class InformationSchemaPageSourceProvider
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_ROLES));
         for (String role : metadata.listRoles(session, catalog)) {
             table.add(role);
+        }
+        return table.build();
+    }
+
+    private InternalTable buildApplicableRoles(Session session, String catalog)
+    {
+        InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_APPLICABLE_ROLES));
+        for (RoleGrant grant : metadata.listApplicableRoles(session, new PrestoPrincipal(USER, session.getUser()), catalog)) {
+            PrestoPrincipal grantee = grant.getGrantee();
+            table.add(
+                    grantee.getName(), grantee.getType().toString(),
+                    grant.getRoleName(),
+                    grant.isGrantable() ? "YES" : "NO");
         }
         return table.build();
     }
