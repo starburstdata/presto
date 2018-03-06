@@ -29,6 +29,10 @@ public class LdapConfig
     private String groupAuthorizationSearchPattern;
     private String userBaseDistinguishedName;
     private Duration ldapCacheTtl = new Duration(1, TimeUnit.HOURS);
+    private String internalLdapCommunicationUser;
+    private String internalLdapCommunicationPassword;
+    public static final String LDAP_USER_CONFIG = "internal-communication.authentication.ldap.user";
+    public static final String LDAP_PASSWORD_CONFIG = "internal-communication.authentication.ldap.password";
 
     @NotNull
     @Pattern(regexp = "^ldaps://.*", message = "LDAP without SSL/TLS unsupported. Expected ldaps://")
@@ -95,6 +99,30 @@ public class LdapConfig
     public LdapConfig setLdapCacheTtl(Duration ldapCacheTtl)
     {
         this.ldapCacheTtl = ldapCacheTtl;
+        return this;
+    }
+
+    public String getInternalLdapCommunicationUser()
+    {
+        return internalLdapCommunicationUser;
+    }
+
+    @Config(LDAP_USER_CONFIG)
+    public LdapConfig setInternalLdapCommunicationUser(String internalLdapCommunicationUser)
+    {
+        this.internalLdapCommunicationUser = internalLdapCommunicationUser;
+        return this;
+    }
+
+    public String getInternalLdapCommunicationPassword()
+    {
+        return internalLdapCommunicationPassword;
+    }
+
+    @Config(LDAP_PASSWORD_CONFIG)
+    public LdapConfig setInternalLdapCommunicationPassword(String internalLdapCommunicationPassword)
+    {
+        this.internalLdapCommunicationPassword = internalLdapCommunicationPassword;
         return this;
     }
 }

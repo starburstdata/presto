@@ -40,6 +40,8 @@ public class TestLdapConfig
                 .setUserBindSearchPattern(null)
                 .setUserBaseDistinguishedName(null)
                 .setGroupAuthorizationSearchPattern(null)
+                .setInternalLdapCommunicationUser(null)
+                .setInternalLdapCommunicationPassword(null)
                 .setLdapCacheTtl(new Duration(1, TimeUnit.HOURS)));
     }
 
@@ -52,6 +54,8 @@ public class TestLdapConfig
                 .put("ldap.user-base-dn", "dc=test,dc=com")
                 .put("ldap.group-auth-pattern", "&(objectClass=user)(memberOf=cn=group)(user=username)")
                 .put("ldap.cache-ttl", "2m")
+                .put("internal-communication.authentication.ldap.user", "user")
+                .put("internal-communication.authentication.ldap.password", "pass")
                 .build();
 
         LdapConfig expected = new LdapConfig()
@@ -59,6 +63,8 @@ public class TestLdapConfig
                 .setUserBindSearchPattern("uid=${USER},ou=org,dc=test,dc=com")
                 .setUserBaseDistinguishedName("dc=test,dc=com")
                 .setGroupAuthorizationSearchPattern("&(objectClass=user)(memberOf=cn=group)(user=username)")
+                .setInternalLdapCommunicationUser("user")
+                .setInternalLdapCommunicationPassword("pass")
                 .setLdapCacheTtl(new Duration(2, TimeUnit.MINUTES));
 
         assertFullMapping(properties, expected);

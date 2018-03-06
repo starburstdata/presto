@@ -152,7 +152,6 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.server.EmbeddedDiscoveryModule;
-import io.airlift.http.client.BasicAuthRequestFilter;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.spnego.KerberosConfig;
 import io.airlift.slice.Slice;
@@ -257,13 +256,6 @@ public class ServerMainModule
                 config.setKerberosPrincipal(principal.substituteHostnamePlaceholder().toString());
                 config.setKerberosRemoteServiceName(kerberosServiceName);
             });
-        }
-
-        String ldapUser = internalCommunicationConfig.getLdapUser();
-        if (ldapUser != null) {
-            String ldapPassword = internalCommunicationConfig.getLdapPassword();
-            checkArgument(ldapPassword != null, "ldap password must be set");
-            httpClientBinder(binder).bindGlobalFilter(new BasicAuthRequestFilter(ldapUser, ldapPassword));
         }
 
         configBinder(binder).bindConfig(FeaturesConfig.class);

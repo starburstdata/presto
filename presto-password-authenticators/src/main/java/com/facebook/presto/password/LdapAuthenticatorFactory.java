@@ -21,7 +21,10 @@ import io.airlift.bootstrap.Bootstrap;
 
 import java.util.Map;
 
+import static com.facebook.presto.password.LdapConfig.LDAP_PASSWORD_CONFIG;
+import static com.facebook.presto.password.LdapConfig.LDAP_USER_CONFIG;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class LdapAuthenticatorFactory
@@ -42,6 +45,10 @@ public class LdapAuthenticatorFactory
                         configBinder(binder).bindConfig(LdapConfig.class);
                         binder.bind(LdapAuthenticator.class).in(Scopes.SINGLETON);
                     });
+            installModuleIf(
+                    LdapConfig.class,
+                    ldapConfig -> ldapConfig.getInternalLdapCommunicationUser() != null,
+                    new InternalLdapCommunicationModule(config.get(LDAP_USER_CONFIG), config.get(LDAP_PASSWORD_CONFIG)));
 
             Injector injector = app
                     .strictConfig()
