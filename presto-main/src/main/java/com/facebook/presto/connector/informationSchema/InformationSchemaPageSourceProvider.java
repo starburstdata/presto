@@ -33,12 +33,12 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.NullableValue;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.PrivilegeInfo;
 import com.facebook.presto.spi.security.RoleGrant;
+import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
@@ -51,6 +51,7 @@ import java.util.Set;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_APPLICABLE_ROLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
+import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_ENABLED_ROLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_ROLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
@@ -74,11 +75,13 @@ public class InformationSchemaPageSourceProvider
 {
     private final Metadata metadata;
     private final AccessControl accessControl;
+    private final TransactionManager transactionManager;
 
-    public InformationSchemaPageSourceProvider(Metadata metadata, AccessControl accessControl)
+    public InformationSchemaPageSourceProvider(Metadata metadata, AccessControl accessControl, TransactionManager transactionManager)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
     }
 
     @Override
@@ -116,7 +119,6 @@ public class InformationSchemaPageSourceProvider
 
         ConnectorIdentity connectorIdentity = connectorSession.getIdentity();
         Session session = Session.builder(metadata.getSessionPropertyManager())
-                .setTransactionId(transaction.getTransactionId())
                 .setQueryId(new QueryId(connectorSession.getQueryId()))
                 .setIdentity(connectorIdentity.toIdentity(handle.getCatalogName()))
                 .setSource("information_schema")
@@ -125,7 +127,8 @@ public class InformationSchemaPageSourceProvider
                 .setTimeZoneKey(connectorSession.getTimeZoneKey())
                 .setLocale(connectorSession.getLocale())
                 .setStartTime(connectorSession.getStartTime())
-                .build();
+                .build()
+                .beginTransactionId(transaction.getTransactionId(), transactionManager, accessControl);
 
         return getInformationSchemaTable(session, handle.getCatalogName(), handle.getSchemaTableName(), filters);
     }
@@ -152,6 +155,9 @@ public class InformationSchemaPageSourceProvider
         }
         if (table.equals(TABLE_APPLICABLE_ROLES)) {
             return buildApplicableRoles(session, catalog);
+        }
+        if (table.equals(TABLE_ENABLED_ROLES)) {
+            return buildEnabledRoles(session, catalog);
         }
 
         throw new IllegalArgumentException(format("table does not exist: %s", table));
@@ -270,6 +276,15 @@ public class InformationSchemaPageSourceProvider
                     grantee.getName(), grantee.getType().toString(),
                     grant.getRoleName(),
                     grant.isGrantable() ? "YES" : "NO");
+        }
+        return table.build();
+    }
+
+    private InternalTable buildEnabledRoles(Session session, String catalog)
+    {
+        InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_ENABLED_ROLES));
+        for (String role : metadata.listEnabledRoles(session, catalog)) {
+            table.add(role);
         }
         return table.build();
     }
