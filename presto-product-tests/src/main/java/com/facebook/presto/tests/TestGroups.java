@@ -63,6 +63,7 @@ public final class TestGroups
     public static final String STATS_CLIENT = "stats_client";
     public static final String TIMESTAMP = "timestamp";
     public static final String PREPARED_STATEMENTS = "prepared_statements";
+    public static final String ROLES = "roles";
 
     private TestGroups() {}
 }
