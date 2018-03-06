@@ -140,6 +140,7 @@ public abstract class AbstractTestingPrestoClient<T>
                 session.getLocale(),
                 properties.build(),
                 session.getPreparedStatements(),
+                session.getIdentity().getRoles(),
                 session.getTransactionId().map(Object::toString).orElse(null),
                 clientRequestTimeout);
     }
