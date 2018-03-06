@@ -16,6 +16,7 @@ package com.facebook.presto.hive.metastore.thrift;
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
+import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -201,7 +202,7 @@ public class InMemoryHiveMetastore
             for (Entry<String, List<PrivilegeGrantInfo>> entry : privileges.getUserPrivileges().entrySet()) {
                 String user = entry.getKey();
                 Set<HivePrivilegeInfo> userPrivileges = entry.getValue().stream()
-                        .map(HivePrivilegeInfo::parsePrivilege)
+                        .map(ThriftMetastoreUtil::parsePrivilege)
                         .flatMap(Collection::stream)
                         .collect(toImmutableSet());
                 setTablePrivileges(user, USER, table.getDbName(), table.getTableName(), userPrivileges);
@@ -209,7 +210,7 @@ public class InMemoryHiveMetastore
             for (Entry<String, List<PrivilegeGrantInfo>> entry : privileges.getRolePrivileges().entrySet()) {
                 String role = entry.getKey();
                 Set<HivePrivilegeInfo> rolePrivileges = entry.getValue().stream()
-                        .map(HivePrivilegeInfo::parsePrivilege)
+                        .map(ThriftMetastoreUtil::parsePrivilege)
                         .flatMap(Collection::stream)
                         .collect(toImmutableSet());
                 setTablePrivileges(role, ROLE, table.getDbName(), table.getTableName(), rolePrivileges);
