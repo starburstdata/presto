@@ -18,7 +18,9 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
+import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LiteralInterpreter;
+import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
@@ -33,6 +35,7 @@ import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
@@ -52,7 +55,9 @@ import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.differenceInSta
 import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
 import static com.facebook.presto.cost.SymbolStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.cost.SymbolStatsEstimate.ZERO_STATS;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.ExpressionUtils.and;
+import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN_OR_EQUAL;
@@ -62,6 +67,7 @@ import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Double.min;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public class FilterStatsCalculator
@@ -85,8 +91,40 @@ public class FilterStatsCalculator
             Session session,
             Map<Symbol, Type> types)
     {
-        return new FilterExpressionStatsCalculatingVisitor(statsEstimate, session, types).process(predicate)
+        Expression simplifiedExpression = simplifyExpression(session, predicate, types);
+        return new FilterExpressionStatsCalculatingVisitor(statsEstimate, session, types)
+                .process(simplifiedExpression)
                 .orElseGet(() -> normalizer.normalize(filterStatsForUnknownExpression(statsEstimate), types));
+    }
+
+    private Expression simplifyExpression(Session session, Expression predicate, Map<Symbol, Type> types)
+    {
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, predicate, types);
+        ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(predicate, metadata, session, expressionTypes);
+        Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+
+        if (value instanceof Expression) {
+            return (Expression) value;
+        }
+        if (value == null) {
+            // expression evaluates to SQL null, which in Filter is equivalent to false
+            value = false;
+        }
+        return toExpression(value, BOOLEAN);
+    }
+
+    private Map<NodeRef<Expression>, Type> getExpressionTypes(Session session, Expression expression, Map<Symbol, Type> types)
+    {
+        ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
+                metadata.getFunctionRegistry(),
+                metadata.getTypeManager(),
+                session,
+                types,
+                emptyList(),
+                node -> new IllegalStateException("Expected node: %s" + node),
+                false);
+        expressionAnalyzer.analyze(expression, Scope.create());
+        return expressionAnalyzer.getExpressionTypes();
     }
 
     private static PlanNodeStatsEstimate filterStatsForUnknownExpression(PlanNodeStatsEstimate inputStatistics)
