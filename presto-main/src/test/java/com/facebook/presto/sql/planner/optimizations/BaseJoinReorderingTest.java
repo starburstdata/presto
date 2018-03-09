@@ -37,7 +37,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.testing.Arguments.toDataProvider;
+import static com.facebook.presto.testing.TestngUtils.toDataProvider;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
