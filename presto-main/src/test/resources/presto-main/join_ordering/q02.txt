@@ -1,0 +1,19 @@
+cross join:
+    join (RIGHT, PARTITIONED):
+        join (INNER, REPLICATED):
+            tpch:partsupp:sf3000.0
+            join (INNER, REPLICATED):
+                tpch:supplier:sf3000.0
+                join (INNER, REPLICATED):
+                    tpch:nation:sf3000.0
+                    tpch:region:sf3000.0
+        join (INNER, PARTITIONED):
+            join (INNER, REPLICATED):
+                tpch:partsupp:sf3000.0
+                tpch:part:sf3000.0
+            join (INNER, REPLICATED):
+                tpch:supplier:sf3000.0
+                join (INNER, REPLICATED):
+                    tpch:nation:sf3000.0
+                    tpch:region:sf3000.0
+    values

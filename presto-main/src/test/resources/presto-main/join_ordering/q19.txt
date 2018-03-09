@@ -1,0 +1,3 @@
+join (INNER, PARTITIONED):
+    tpch:lineitem:sf3000.0
+    tpch:part:sf3000.0

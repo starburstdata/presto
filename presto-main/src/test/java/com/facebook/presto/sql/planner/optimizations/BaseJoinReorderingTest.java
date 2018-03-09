@@ -23,31 +23,124 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.testing.Arguments.toDataProvider;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.Files.exists;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 import static org.testng.Assert.assertEquals;
 
 public abstract class BaseJoinReorderingTest
         extends BasePlanTest
 {
-    public BaseJoinReorderingTest(String schema, ImmutableMap<String, String> sessionProperties)
+    private final Path mavenModulePath;
+
+    public BaseJoinReorderingTest(String schema, String mavenModule, ImmutableMap<String, String> sessionProperties)
     {
         super(schema, sessionProperties);
+        this.mavenModulePath = Paths.get(requireNonNull(mavenModule, "mavenModulePath is null"));
     }
 
-    protected void assertJoinOrder(String sql, Node expected)
+    protected abstract Stream<Query> getQueries();
+
+    @DataProvider
+    public Object[][] getQueriesDataProvider()
     {
-        assertEquals(joinOrderString(sql), expected.print());
+        return getQueries()
+                .collect(toDataProvider());
     }
 
-    protected String joinOrderString(String sql)
+    @Test(dataProvider = "getQueriesDataProvider")
+    public void test(Query query)
     {
+        String actual = joinOrderString(resolve(query.query))
+                .stream()
+                .collect(joining("\n"));
+        assertEquals(actual, read(resolve(getExpectedJoinOrderingFile(query.id))));
+    }
+
+    private Path resolve(Path path)
+    {
+        if (exists(path)) {
+            return path;
+        }
+        Path fromParent = Paths.get("..").resolve(path);
+        checkState(exists(fromParent), "Unable to resolve: " + path);
+        return fromParent;
+    }
+
+    public void generate()
+    {
+        initPlanTest();
+        try {
+            getQueries().forEach(query -> {
+                try {
+                    Files.write(getExpectedJoinOrderingFile(query.id), joinOrderString(query.query), UTF_8);
+                }
+                catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        }
+        finally {
+            destroyPlanTest();
+        }
+    }
+
+    protected static String read(Path file)
+    {
+        try {
+            return Files.lines(file).collect(joining("\n"));
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private Path getExpectedJoinOrderingFile(String queryId)
+    {
+        return mavenModulePath.resolve(Paths.get("src", "test", "resources", mavenModulePath.getFileName().toString(), "join_ordering", queryId + ".txt"));
+    }
+
+    public static final class Query
+    {
+        private final String id;
+        private final Path query;
+
+        public Query(String id, Path query)
+        {
+            this.id = requireNonNull(id, "id is null");
+            this.query = requireNonNull(query, "query is null");
+        }
+
+        @Override
+        public String toString()
+        {
+            return id;
+        }
+    }
+
+    protected List<String> joinOrderString(Path sqlPath)
+    {
+        String sql = read(sqlPath)
+                .replaceFirst(";", "")
+                .replace("\"${database}\".\"${schema}\".\"${prefix}", "\"");
         Plan plan = plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, false);
 
         JoinOrderPrinter joinOrderPrinter = new JoinOrderPrinter();
@@ -58,11 +151,11 @@ public abstract class BaseJoinReorderingTest
     private static class JoinOrderPrinter
             extends SimplePlanVisitor<Integer>
     {
-        private final StringBuilder stringBuilder = new StringBuilder();
+        private final ImmutableList.Builder<String> lines = ImmutableList.builder();
 
-        public String result()
+        public List<String> result()
         {
-            return stringBuilder.toString();
+            return lines.build();
         }
 
         @Override
@@ -72,16 +165,10 @@ public abstract class BaseJoinReorderingTest
                     .orElseThrow(() -> new IllegalStateException("Expected distribution type to be present"));
             if (node.isCrossJoin()) {
                 checkState(node.getType() == INNER && distributionType == REPLICATED, "Expected CROSS join to be INNER REPLICATED");
-                stringBuilder.append(indentString(indent))
-                        .append("cross join:\n");
+                lines.add(indentString(indent) + "cross join:");
             }
             else {
-                stringBuilder.append(indentString(indent))
-                        .append("join (")
-                        .append(node.getType())
-                        .append(", ")
-                        .append(distributionType)
-                        .append("):\n");
+                lines.add(format("%sjoin (%s, %s):", indentString(indent), node.getType(), distributionType));
             }
 
             return visitPlan(node, indent + 1);
@@ -90,19 +177,14 @@ public abstract class BaseJoinReorderingTest
         @Override
         public Void visitTableScan(TableScanNode node, Integer indent)
         {
-            stringBuilder.append(indentString(indent))
-                    .append(node.getTable().getConnectorHandle().toString())
-                    .append("\n");
-            return visitPlan(node, indent + 1);
+            lines.add(format("%s%s", indentString(indent), node.getTable().getConnectorHandle()));
+            return null;
         }
 
         @Override
         public Void visitSemiJoin(final SemiJoinNode node, Integer indent)
         {
-            stringBuilder.append(indentString(indent))
-                    .append("semijoin (")
-                    .append(node.getDistributionType().map(SemiJoinNode.DistributionType::toString).orElse("unknown"))
-                    .append("):\n");
+            lines.add(format("%ssemijoin (%s):", indentString(indent), node.getDistributionType().get()));
 
             return visitPlan(node, indent + 1);
         }
@@ -110,8 +192,7 @@ public abstract class BaseJoinReorderingTest
         @Override
         public Void visitValues(ValuesNode node, Integer indent)
         {
-            stringBuilder.append(indentString(indent))
-                    .append("values\n");
+            lines.add(format("%svalues", indentString(indent)));
 
             return null;
         }
@@ -120,131 +201,5 @@ public abstract class BaseJoinReorderingTest
     private static String indentString(int indent)
     {
         return Strings.repeat("    ", indent);
-    }
-
-    private interface Node
-    {
-        void print(StringBuilder stringBuilder, int indent);
-
-        default String print()
-        {
-            StringBuilder stringBuilder = new StringBuilder();
-            print(stringBuilder, 0);
-            return stringBuilder.toString();
-        }
-    }
-
-    protected Join crossJoin(Node left, Node right)
-    {
-        return new Join(INNER, REPLICATED, true, left, right);
-    }
-
-    protected static class Join
-            implements Node
-    {
-        private final JoinNode.Type type;
-        private final JoinNode.DistributionType distributionType;
-        private final boolean isCrossJoin;
-        private final Node left;
-        private final Node right;
-
-        protected Join(JoinNode.Type type, JoinNode.DistributionType distributionType, Node left, Node right)
-        {
-            this(type, distributionType, false, left, right);
-        }
-
-        private Join(JoinNode.Type type, JoinNode.DistributionType distributionType, boolean isCrossJoin, Node left, Node right)
-        {
-            if (isCrossJoin) {
-                checkArgument(distributionType == REPLICATED && type == INNER, "Cross join can only accept INNER REPLICATED join");
-            }
-            this.type = requireNonNull(type, "type is null");
-            this.distributionType = requireNonNull(distributionType, "distributionType is null");
-            this.isCrossJoin = isCrossJoin;
-            this.left = requireNonNull(left, "left is null");
-            this.right = requireNonNull(right, "right is null");
-        }
-
-        @Override
-        public void print(StringBuilder stringBuilder, int indent)
-        {
-            if (isCrossJoin) {
-                stringBuilder.append(indentString(indent))
-                        .append("cross join:\n");
-            }
-            else {
-                stringBuilder.append(indentString(indent))
-                        .append("join (")
-                        .append(type)
-                        .append(", ")
-                        .append(distributionType)
-                        .append("):\n");
-            }
-
-            left.print(stringBuilder, indent + 1);
-            right.print(stringBuilder, indent + 1);
-        }
-    }
-
-    protected static class SemiJoin
-            implements Node
-    {
-        private final JoinNode.DistributionType distributionType;
-        private final Node left;
-        private final Node right;
-
-        protected SemiJoin(JoinNode.DistributionType distributionType, final Node left, final Node right)
-        {
-            this.distributionType = requireNonNull(distributionType);
-            this.left = requireNonNull(left);
-            this.right = requireNonNull(right);
-        }
-
-        @Override
-        public void print(StringBuilder stringBuilder, int indent)
-        {
-            stringBuilder.append(indentString(indent))
-                    .append("semijoin (")
-                    .append(distributionType.toString())
-                    .append("):\n");
-
-            left.print(stringBuilder, indent + 1);
-            right.print(stringBuilder, indent + 1);
-        }
-    }
-
-    protected TableScan tableScan(String tableName)
-    {
-        return new TableScan(format("tpch:%s:%s", tableName, getQueryRunner().getDefaultSession().getSchema().get()));
-    }
-
-    protected static class TableScan
-            implements Node
-    {
-        private final String tableName;
-
-        private TableScan(String tableName)
-        {
-            this.tableName = tableName;
-        }
-
-        @Override
-        public void print(StringBuilder stringBuilder, int indent)
-        {
-            stringBuilder.append(indentString(indent))
-                    .append(tableName)
-                    .append("\n");
-        }
-    }
-
-    protected static class Values
-            implements Node
-    {
-        @Override
-        public void print(StringBuilder stringBuilder, int indent)
-        {
-            stringBuilder.append(indentString(indent))
-                    .append("values\n");
-        }
     }
 }

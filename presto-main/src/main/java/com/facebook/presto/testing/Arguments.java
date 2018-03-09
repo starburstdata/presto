@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.testing;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collector;
 import java.util.stream.Stream;
 
 import static java.util.Arrays.asList;
@@ -32,5 +34,17 @@ public class Arguments
     public static Object[][] toArgumentsArrays(Stream<List<?>> argumentsLists)
     {
         return argumentsLists.map(List::toArray).toArray(Object[][]::new);
+    }
+
+    public static <T> Collector<T, ?, Object[][]> toDataProvider()
+    {
+        return Collector.of(
+                ArrayList::new,
+                (builder, entry) -> builder.add(new Object[]{entry}),
+                (left, right) -> {
+                    left.addAll(right);
+                    return left;
+                },
+                builder -> builder.toArray(new Object[][]{}));
     }
 }

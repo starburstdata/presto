@@ -1,0 +1,3 @@
+join (RIGHT, PARTITIONED):
+    tpch:orders:sf3000.0
+    tpch:customer:sf3000.0

@@ -1,0 +1,11 @@
+semijoin (PARTITIONED):
+    join (INNER, REPLICATED):
+        tpch:supplier:sf3000.0
+        tpch:nation:sf3000.0
+    cross join:
+        join (RIGHT, PARTITIONED):
+            tpch:lineitem:sf3000.0
+            semijoin (PARTITIONED):
+                tpch:partsupp:sf3000.0
+                tpch:part:sf3000.0
+        values

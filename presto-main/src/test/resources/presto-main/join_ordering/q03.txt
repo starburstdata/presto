@@ -1,0 +1,5 @@
+join (INNER, REPLICATED):
+    tpch:lineitem:sf3000.0
+    join (INNER, REPLICATED):
+        tpch:orders:sf3000.0
+        tpch:customer:sf3000.0

@@ -1,0 +1,11 @@
+join (LEFT, PARTITIONED):
+    join (LEFT, PARTITIONED):
+        join (INNER, PARTITIONED):
+            join (INNER, PARTITIONED):
+                join (INNER, REPLICATED):
+                    tpch:lineitem:sf3000.0
+                    tpch:supplier:sf3000.0
+                tpch:orders:sf3000.0
+            tpch:nation:sf3000.0
+        tpch:lineitem:sf3000.0
+    tpch:lineitem:sf3000.0

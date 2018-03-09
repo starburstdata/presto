@@ -1,0 +1,11 @@
+cross join:
+    join (INNER, REPLICATED):
+        tpch:partsupp:sf3000.0
+        join (INNER, REPLICATED):
+            tpch:supplier:sf3000.0
+            tpch:nation:sf3000.0
+    join (INNER, REPLICATED):
+        tpch:partsupp:sf3000.0
+        join (INNER, REPLICATED):
+            tpch:supplier:sf3000.0
+            tpch:nation:sf3000.0

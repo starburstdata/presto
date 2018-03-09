@@ -1,0 +1,7 @@
+cross join:
+    join (LEFT, PARTITIONED):
+        cross join:
+            tpch:customer:sf3000.0
+            tpch:customer:sf3000.0
+        tpch:orders:sf3000.0
+    values

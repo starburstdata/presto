@@ -1,0 +1,5 @@
+semijoin (PARTITIONED):
+    join (INNER, PARTITIONED):
+        tpch:partsupp:sf3000.0
+        tpch:part:sf3000.0
+    tpch:supplier:sf3000.0
