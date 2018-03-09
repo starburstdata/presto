@@ -1,0 +1,13 @@
+join (INNER, PARTITIONED):
+    join (INNER, PARTITIONED):
+        join (INNER, PARTITIONED):
+            tpcds:web_sales:sf3000.0
+            tpcds:catalog_sales:sf3000.0
+            tpcds:date_dim:sf3000.0
+        tpcds:date_dim:sf3000.0
+    join (INNER, PARTITIONED):
+        join (INNER, PARTITIONED):
+            tpcds:web_sales:sf3000.0
+            tpcds:catalog_sales:sf3000.0
+            tpcds:date_dim:sf3000.0
+        tpcds:date_dim:sf3000.0

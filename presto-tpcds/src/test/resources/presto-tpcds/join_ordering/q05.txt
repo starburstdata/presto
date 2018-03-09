@@ -1,0 +1,20 @@
+join (INNER, PARTITIONED):
+    join (INNER, PARTITIONED):
+        tpcds:store_sales:sf3000.0
+        tpcds:store_returns:sf3000.0
+        tpcds:date_dim:sf3000.0
+    tpcds:store:sf3000.0
+join (INNER, PARTITIONED):
+    join (INNER, PARTITIONED):
+        tpcds:catalog_sales:sf3000.0
+        tpcds:catalog_returns:sf3000.0
+        tpcds:date_dim:sf3000.0
+    tpcds:catalog_page:sf3000.0
+join (INNER, PARTITIONED):
+    join (INNER, PARTITIONED):
+        tpcds:web_sales:sf3000.0
+        join (RIGHT, PARTITIONED):
+            tpcds:web_sales:sf3000.0
+            tpcds:web_returns:sf3000.0
+        tpcds:date_dim:sf3000.0
+    tpcds:web_site:sf3000.0

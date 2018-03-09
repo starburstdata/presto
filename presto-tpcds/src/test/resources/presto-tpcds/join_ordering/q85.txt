@@ -1,0 +1,15 @@
+join (INNER, REPLICATED):
+    join (INNER, REPLICATED):
+        join (INNER, PARTITIONED):
+            join (INNER, PARTITIONED):
+                join (INNER, PARTITIONED):
+                    join (INNER, REPLICATED):
+                        tpcds:web_sales:sf3000.0
+                        tpcds:date_dim:sf3000.0
+                    join (INNER, REPLICATED):
+                        tpcds:web_returns:sf3000.0
+                        tpcds:customer_demographics:sf3000.0
+                tpcds:customer_address:sf3000.0
+            tpcds:customer_demographics:sf3000.0
+        tpcds:web_page:sf3000.0
+    tpcds:reason:sf3000.0

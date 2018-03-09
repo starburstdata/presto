@@ -1,0 +1,35 @@
+join (INNER, PARTITIONED):
+    join (INNER, PARTITIONED):
+        join (INNER, PARTITIONED):
+            join (INNER, REPLICATED):
+                join (INNER, REPLICATED):
+                    tpcds:store_sales:sf3000.0
+                    tpcds:date_dim:sf3000.0
+                tpcds:customer_address:sf3000.0
+            join (INNER, REPLICATED):
+                join (INNER, REPLICATED):
+                    tpcds:store_sales:sf3000.0
+                    tpcds:date_dim:sf3000.0
+                tpcds:customer_address:sf3000.0
+        join (INNER, PARTITIONED):
+            join (INNER, REPLICATED):
+                join (INNER, REPLICATED):
+                    tpcds:web_sales:sf3000.0
+                    tpcds:date_dim:sf3000.0
+                tpcds:customer_address:sf3000.0
+            join (INNER, REPLICATED):
+                join (INNER, REPLICATED):
+                    tpcds:web_sales:sf3000.0
+                    tpcds:date_dim:sf3000.0
+                tpcds:customer_address:sf3000.0
+    join (INNER, PARTITIONED):
+        join (INNER, REPLICATED):
+            join (INNER, REPLICATED):
+                tpcds:store_sales:sf3000.0
+                tpcds:date_dim:sf3000.0
+            tpcds:customer_address:sf3000.0
+        join (INNER, REPLICATED):
+            join (INNER, REPLICATED):
+                tpcds:web_sales:sf3000.0
+                tpcds:date_dim:sf3000.0
+            tpcds:customer_address:sf3000.0

@@ -1,0 +1,75 @@
+join (INNER, PARTITIONED):
+    join (INNER, PARTITIONED):
+        join (INNER, PARTITIONED):
+            join (INNER, REPLICATED):
+                join (INNER, REPLICATED):
+                    join (INNER, REPLICATED):
+                        join (INNER, REPLICATED):
+                            join (INNER, REPLICATED):
+                                join (INNER, REPLICATED):
+                                    join (INNER, REPLICATED):
+                                        join (INNER, REPLICATED):
+                                            join (INNER, REPLICATED):
+                                                join (INNER, REPLICATED):
+                                                    tpcds:store_sales:sf3000.0
+                                                    tpcds:date_dim:sf3000.0
+                                                join (INNER, REPLICATED):
+                                                    tpcds:store_returns:sf3000.0
+                                                    join (INNER, PARTITIONED):
+                                                        tpcds:catalog_sales:sf3000.0
+                                                        tpcds:catalog_returns:sf3000.0
+                                            tpcds:customer_demographics:sf3000.0
+                                        tpcds:store:sf3000.0
+                                    join (INNER, REPLICATED):
+                                        join (INNER, REPLICATED):
+                                            tpcds:customer:sf3000.0
+                                            tpcds:date_dim:sf3000.0
+                                        tpcds:date_dim:sf3000.0
+                                tpcds:item:sf3000.0
+                            tpcds:customer_demographics:sf3000.0
+                        join (INNER, REPLICATED):
+                            tpcds:household_demographics:sf3000.0
+                            tpcds:income_band:sf3000.0
+                    join (INNER, REPLICATED):
+                        tpcds:household_demographics:sf3000.0
+                        tpcds:income_band:sf3000.0
+                tpcds:promotion:sf3000.0
+            tpcds:customer_address:sf3000.0
+        tpcds:customer_address:sf3000.0
+    join (INNER, PARTITIONED):
+        join (INNER, PARTITIONED):
+            join (INNER, REPLICATED):
+                join (INNER, REPLICATED):
+                    join (INNER, REPLICATED):
+                        join (INNER, REPLICATED):
+                            join (INNER, REPLICATED):
+                                join (INNER, REPLICATED):
+                                    join (INNER, REPLICATED):
+                                        join (INNER, REPLICATED):
+                                            join (INNER, REPLICATED):
+                                                join (INNER, REPLICATED):
+                                                    tpcds:store_sales:sf3000.0
+                                                    tpcds:date_dim:sf3000.0
+                                                join (INNER, REPLICATED):
+                                                    tpcds:store_returns:sf3000.0
+                                                    join (INNER, PARTITIONED):
+                                                        tpcds:catalog_sales:sf3000.0
+                                                        tpcds:catalog_returns:sf3000.0
+                                            tpcds:customer_demographics:sf3000.0
+                                        tpcds:store:sf3000.0
+                                    join (INNER, REPLICATED):
+                                        join (INNER, REPLICATED):
+                                            tpcds:customer:sf3000.0
+                                            tpcds:date_dim:sf3000.0
+                                        tpcds:date_dim:sf3000.0
+                                tpcds:item:sf3000.0
+                            tpcds:customer_demographics:sf3000.0
+                        join (INNER, REPLICATED):
+                            tpcds:household_demographics:sf3000.0
+                            tpcds:income_band:sf3000.0
+                    join (INNER, REPLICATED):
+                        tpcds:household_demographics:sf3000.0
+                        tpcds:income_band:sf3000.0
+                tpcds:promotion:sf3000.0
+            tpcds:customer_address:sf3000.0
+        tpcds:customer_address:sf3000.0

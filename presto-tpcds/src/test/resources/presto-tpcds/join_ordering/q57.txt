@@ -1,0 +1,23 @@
+join (INNER, PARTITIONED):
+    join (INNER, PARTITIONED):
+        join (INNER, REPLICATED):
+            join (INNER, REPLICATED):
+                join (INNER, REPLICATED):
+                    tpcds:catalog_sales:sf3000.0
+                    tpcds:date_dim:sf3000.0
+                tpcds:item:sf3000.0
+            tpcds:call_center:sf3000.0
+        join (INNER, REPLICATED):
+            join (INNER, REPLICATED):
+                join (INNER, REPLICATED):
+                    tpcds:catalog_sales:sf3000.0
+                    tpcds:date_dim:sf3000.0
+                tpcds:item:sf3000.0
+            tpcds:call_center:sf3000.0
+    join (INNER, REPLICATED):
+        join (INNER, REPLICATED):
+            join (INNER, REPLICATED):
+                tpcds:catalog_sales:sf3000.0
+                tpcds:date_dim:sf3000.0
+            tpcds:item:sf3000.0
+        tpcds:call_center:sf3000.0

@@ -1,0 +1,13 @@
+join (INNER, REPLICATED):
+    join (INNER, REPLICATED):
+        join (INNER, REPLICATED):
+            tpcds:catalog_returns:sf3000.0
+            join (INNER, REPLICATED):
+                tpcds:customer_address:sf3000.0
+                join (INNER, REPLICATED):
+                    join (INNER, REPLICATED):
+                        tpcds:customer:sf3000.0
+                        tpcds:customer_demographics:sf3000.0
+                    tpcds:household_demographics:sf3000.0
+        tpcds:date_dim:sf3000.0
+    tpcds:call_center:sf3000.0

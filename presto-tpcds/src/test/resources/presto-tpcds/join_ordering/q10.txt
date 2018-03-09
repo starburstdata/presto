@@ -1,0 +1,23 @@
+cross join:
+    join (RIGHT, PARTITIONED):
+        join (INNER, REPLICATED):
+            tpcds:catalog_sales:sf3000.0
+            tpcds:date_dim:sf3000.0
+        cross join:
+            join (RIGHT, PARTITIONED):
+                join (INNER, REPLICATED):
+                    tpcds:web_sales:sf3000.0
+                    tpcds:date_dim:sf3000.0
+                cross join:
+                    join (RIGHT, PARTITIONED):
+                        join (INNER, REPLICATED):
+                            tpcds:store_sales:sf3000.0
+                            tpcds:date_dim:sf3000.0
+                        join (INNER, REPLICATED):
+                            tpcds:customer_demographics:sf3000.0
+                            join (INNER, REPLICATED):
+                                tpcds:customer:sf3000.0
+                                tpcds:customer_address:sf3000.0
+                    values
+            values
+    values

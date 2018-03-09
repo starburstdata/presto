@@ -1,0 +1,7 @@
+join (INNER, REPLICATED):
+    tpcds:store_sales:sf3000.0
+    join (INNER, REPLICATED):
+        join (INNER, REPLICATED):
+            tpcds:inventory:sf3000.0
+            tpcds:item:sf3000.0
+        tpcds:date_dim:sf3000.0

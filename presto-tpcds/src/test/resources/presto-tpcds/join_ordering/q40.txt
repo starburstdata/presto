@@ -1,0 +1,9 @@
+join (INNER, REPLICATED):
+    join (INNER, REPLICATED):
+        join (INNER, REPLICATED):
+            join (LEFT, REPLICATED):
+                tpcds:catalog_sales:sf3000.0
+                tpcds:catalog_returns:sf3000.0
+            tpcds:item:sf3000.0
+        tpcds:date_dim:sf3000.0
+    tpcds:warehouse:sf3000.0

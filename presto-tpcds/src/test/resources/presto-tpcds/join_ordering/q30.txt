@@ -1,0 +1,17 @@
+cross join:
+    join (LEFT, REPLICATED):
+        join (INNER, REPLICATED):
+            join (INNER, PARTITIONED):
+                join (INNER, REPLICATED):
+                    tpcds:web_returns:sf3000.0
+                    tpcds:date_dim:sf3000.0
+                tpcds:customer_address:sf3000.0
+            join (INNER, REPLICATED):
+                tpcds:customer:sf3000.0
+                tpcds:customer_address:sf3000.0
+        join (INNER, PARTITIONED):
+            join (INNER, REPLICATED):
+                tpcds:web_returns:sf3000.0
+                tpcds:date_dim:sf3000.0
+            tpcds:customer_address:sf3000.0
+    values

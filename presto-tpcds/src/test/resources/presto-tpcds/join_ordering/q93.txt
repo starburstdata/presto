@@ -1,0 +1,5 @@
+join (INNER, REPLICATED):
+    join (LEFT, PARTITIONED):
+        tpcds:store_sales:sf3000.0
+        tpcds:store_returns:sf3000.0
+    tpcds:reason:sf3000.0

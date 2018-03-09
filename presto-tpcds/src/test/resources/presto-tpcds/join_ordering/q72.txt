@@ -1,0 +1,21 @@
+join (LEFT, REPLICATED):
+    join (LEFT, REPLICATED):
+        join (INNER, PARTITIONED):
+            join (INNER, REPLICATED):
+                tpcds:inventory:sf3000.0
+                tpcds:warehouse:sf3000.0
+            join (INNER, REPLICATED):
+                join (INNER, REPLICATED):
+                    join (INNER, REPLICATED):
+                        join (INNER, REPLICATED):
+                            join (INNER, REPLICATED):
+                                join (INNER, REPLICATED):
+                                    tpcds:catalog_sales:sf3000.0
+                                    tpcds:customer_demographics:sf3000.0
+                                tpcds:household_demographics:sf3000.0
+                            tpcds:date_dim:sf3000.0
+                        tpcds:date_dim:sf3000.0
+                    tpcds:item:sf3000.0
+                tpcds:date_dim:sf3000.0
+        tpcds:promotion:sf3000.0
+    tpcds:catalog_returns:sf3000.0

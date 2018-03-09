@@ -1,0 +1,33 @@
+join (INNER, REPLICATED):
+    join (INNER, REPLICATED):
+        join (INNER, REPLICATED):
+            join (INNER, REPLICATED):
+                join (LEFT, REPLICATED):
+                    tpcds:store_sales:sf3000.0
+                    tpcds:store_returns:sf3000.0
+                tpcds:date_dim:sf3000.0
+            tpcds:item:sf3000.0
+        tpcds:promotion:sf3000.0
+    tpcds:store:sf3000.0
+join (INNER, REPLICATED):
+    join (INNER, REPLICATED):
+        join (INNER, REPLICATED):
+            join (INNER, REPLICATED):
+                join (LEFT, REPLICATED):
+                    tpcds:catalog_sales:sf3000.0
+                    tpcds:catalog_returns:sf3000.0
+                tpcds:date_dim:sf3000.0
+            tpcds:item:sf3000.0
+        tpcds:promotion:sf3000.0
+    tpcds:catalog_page:sf3000.0
+join (INNER, REPLICATED):
+    join (INNER, REPLICATED):
+        join (INNER, REPLICATED):
+            join (INNER, REPLICATED):
+                join (LEFT, REPLICATED):
+                    tpcds:web_sales:sf3000.0
+                    tpcds:web_returns:sf3000.0
+                tpcds:date_dim:sf3000.0
+            tpcds:item:sf3000.0
+        tpcds:promotion:sf3000.0
+    tpcds:web_site:sf3000.0

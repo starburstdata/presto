@@ -1,0 +1,11 @@
+join (INNER, PARTITIONED):
+    join (INNER, PARTITIONED):
+        join (INNER, PARTITIONED):
+            cross join:
+                tpcds:store_sales:sf3000.0
+                tpcds:store_sales:sf3000.0
+            cross join:
+                tpcds:store_sales:sf3000.0
+                tpcds:store_sales:sf3000.0
+        tpcds:item:sf3000.0
+    tpcds:item:sf3000.0

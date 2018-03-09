@@ -1,0 +1,29 @@
+join (INNER, PARTITIONED):
+    semijoin (PARTITIONED):
+        join (INNER, REPLICATED):
+            join (INNER, REPLICATED):
+                tpcds:store_returns:sf3000.0
+                tpcds:item:sf3000.0
+            tpcds:date_dim:sf3000.0
+        semijoin (PARTITIONED):
+            tpcds:date_dim:sf3000.0
+            tpcds:date_dim:sf3000.0
+    join (INNER, PARTITIONED):
+        semijoin (PARTITIONED):
+            join (INNER, REPLICATED):
+                join (INNER, REPLICATED):
+                    tpcds:catalog_returns:sf3000.0
+                    tpcds:item:sf3000.0
+                tpcds:date_dim:sf3000.0
+            semijoin (PARTITIONED):
+                tpcds:date_dim:sf3000.0
+                tpcds:date_dim:sf3000.0
+        semijoin (PARTITIONED):
+            join (INNER, REPLICATED):
+                join (INNER, REPLICATED):
+                    tpcds:web_returns:sf3000.0
+                    tpcds:item:sf3000.0
+                tpcds:date_dim:sf3000.0
+            semijoin (PARTITIONED):
+                tpcds:date_dim:sf3000.0
+                tpcds:date_dim:sf3000.0
