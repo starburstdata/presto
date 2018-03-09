@@ -14,27 +14,11 @@
 package com.facebook.presto.testing;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.util.stream.Collector;
-import java.util.stream.Stream;
-
-import static java.util.Arrays.asList;
 
 public final class TestngUtils
 {
-    private TestngUtils()
-    {
-    }
-
-    public static List<?> of(Object... arguments)
-    {
-        return asList(arguments);
-    }
-
-    public static Object[][] toArgumentsArrays(Stream<List<?>> argumentsLists)
-    {
-        return argumentsLists.map(List::toArray).toArray(Object[][]::new);
-    }
+    private TestngUtils() {}
 
     public static <T> Collector<T, ?, Object[][]> toDataProvider()
     {
