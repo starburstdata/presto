@@ -75,7 +75,7 @@ public class BasePlanTest
 
         queryRunner = createQueryRunner(sessionBuilder.build());
 
-        createTpchCatalog(queryRunner);
+        createCatalog(queryRunner);
     }
 
     protected LocalQueryRunner createQueryRunner(Session session)
@@ -83,7 +83,7 @@ public class BasePlanTest
         return new LocalQueryRunner(session);
     }
 
-    protected void createTpchCatalog(LocalQueryRunner queryRunner)
+    protected void createCatalog(LocalQueryRunner queryRunner)
     {
         queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
                 new TpchConnectorFactory(1),
