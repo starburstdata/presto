@@ -20,7 +20,7 @@ services:
     depends_on:
       - ldapserver
     volumes:
-      - ../../../conf/presto/etc/ldap-authenticator.properties:/docker/volumes/conf/presto/etc/password-authenticator.properties
+      - ../../../conf/presto/etc/multinode-ldap-authenticator.properties:/docker/volumes/conf/presto/etc/password-authenticator.properties
 
   presto-worker-1:
     domainname: docker.cluster
