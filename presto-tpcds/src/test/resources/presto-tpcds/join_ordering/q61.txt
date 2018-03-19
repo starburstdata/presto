@@ -1,25 +1,25 @@
 cross join:
     join (INNER, REPLICATED):
-        tpcds:customer_address:sf3000.0
         join (INNER, REPLICATED):
-            tpcds:customer:sf3000.0
             join (INNER, REPLICATED):
-                tpcds:date_dim:sf3000.0
                 join (INNER, REPLICATED):
-                    tpcds:promotion:sf3000.0
-                    join (INNER, REPLICATED):
-                        tpcds:store:sf3000.0
-                        join (INNER, REPLICATED):
-                            tpcds:store_sales:sf3000.0
-                            values
-    join (INNER, REPLICATED):
-        tpcds:customer_address:sf3000.0
-        join (INNER, REPLICATED):
-            tpcds:customer:sf3000.0
-            join (INNER, REPLICATED):
-                tpcds:date_dim:sf3000.0
-                join (INNER, REPLICATED):
-                    tpcds:store:sf3000.0
                     join (INNER, REPLICATED):
                         tpcds:store_sales:sf3000.0
-                        values
+                        tpcds:date_dim:sf3000.0
+                    tpcds:item:sf3000.0
+                join (INNER, REPLICATED):
+                    tpcds:customer:sf3000.0
+                    tpcds:customer_address:sf3000.0
+            tpcds:store:sf3000.0
+        tpcds:promotion:sf3000.0
+    join (INNER, REPLICATED):
+        join (INNER, REPLICATED):
+            join (INNER, REPLICATED):
+                join (INNER, REPLICATED):
+                    tpcds:store_sales:sf3000.0
+                    tpcds:date_dim:sf3000.0
+                tpcds:item:sf3000.0
+            join (INNER, REPLICATED):
+                tpcds:customer:sf3000.0
+                tpcds:customer_address:sf3000.0
+        tpcds:store:sf3000.0

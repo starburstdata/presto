@@ -6,10 +6,10 @@ cross join:
                     join (INNER, PARTITIONED):
                         join (INNER, PARTITIONED):
                             join (INNER, PARTITIONED):
-                                join (INNER, REPLICATED):
+                                join (INNER, PARTITIONED):
                                     tpcds:catalog_sales:sf3000.0
                                     tpcds:web_sales:sf3000.0
-                                    values
+                                    tpcds:item:sf3000.0
                                 tpcds:date_dim:sf3000.0
                             tpcds:customer:sf3000.0
                         tpcds:store_sales:sf3000.0

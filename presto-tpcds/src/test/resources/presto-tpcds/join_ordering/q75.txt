@@ -2,42 +2,42 @@ join (INNER, PARTITIONED):
     join (RIGHT, PARTITIONED):
         tpcds:catalog_returns:sf3000.0
         join (INNER, REPLICATED):
-            tpcds:date_dim:sf3000.0
             join (INNER, REPLICATED):
                 tpcds:catalog_sales:sf3000.0
-                values
+                tpcds:item:sf3000.0
+            tpcds:date_dim:sf3000.0
     join (RIGHT, PARTITIONED):
         tpcds:store_returns:sf3000.0
         join (INNER, REPLICATED):
-            tpcds:date_dim:sf3000.0
             join (INNER, REPLICATED):
                 tpcds:store_sales:sf3000.0
-                values
-    join (RIGHT, PARTITIONED):
-        tpcds:web_returns:sf3000.0
-        join (INNER, REPLICATED):
+                tpcds:item:sf3000.0
             tpcds:date_dim:sf3000.0
+    join (LEFT, PARTITIONED):
+        join (INNER, REPLICATED):
             join (INNER, REPLICATED):
                 tpcds:web_sales:sf3000.0
-                values
+                tpcds:item:sf3000.0
+            tpcds:date_dim:sf3000.0
+        tpcds:web_returns:sf3000.0
     join (RIGHT, PARTITIONED):
         tpcds:catalog_returns:sf3000.0
         join (INNER, REPLICATED):
-            tpcds:date_dim:sf3000.0
             join (INNER, REPLICATED):
                 tpcds:catalog_sales:sf3000.0
-                values
+                tpcds:item:sf3000.0
+            tpcds:date_dim:sf3000.0
     join (RIGHT, PARTITIONED):
         tpcds:store_returns:sf3000.0
         join (INNER, REPLICATED):
-            tpcds:date_dim:sf3000.0
             join (INNER, REPLICATED):
                 tpcds:store_sales:sf3000.0
-                values
-    join (RIGHT, PARTITIONED):
-        tpcds:web_returns:sf3000.0
-        join (INNER, REPLICATED):
+                tpcds:item:sf3000.0
             tpcds:date_dim:sf3000.0
+    join (LEFT, PARTITIONED):
+        join (INNER, REPLICATED):
             join (INNER, REPLICATED):
                 tpcds:web_sales:sf3000.0
-                values
+                tpcds:item:sf3000.0
+            tpcds:date_dim:sf3000.0
+        tpcds:web_returns:sf3000.0

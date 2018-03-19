@@ -1,5 +1,5 @@
 cross join:
     join (LEFT, REPLICATED):
         tpcds:item:sf3000.0
-        values
+        tpcds:item:sf3000.0
     values
