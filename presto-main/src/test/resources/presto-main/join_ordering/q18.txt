@@ -1,7 +1,17 @@
-semijoin (PARTITIONED):
-    join (INNER, PARTITIONED):
-        tpch:lineitem:sf3000.0
-        join (INNER, REPLICATED):
-            tpch:orders:sf3000.0
-            tpch:customer:sf3000.0
-    tpch:lineitem:sf3000.0
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        single aggregation over(custkey, name, orderdate, orderkey_3, totalprice)
+            semijoin (PARTITIONED):
+                join (INNER, PARTITIONED):
+                    tpch:lineitem:sf3000.0
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPARTITION, local:orders:4500000000, ["orderkey"])
+                            join (INNER, REPLICATED):
+                                tpch:orders:sf3000.0
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPLICATE, BROADCAST, [])
+                                        tpch:customer:sf3000.0
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (REPARTITION, local:orders:4500000000, ["orderkey_6"])
+                        single aggregation over(orderkey_6)
+                            tpch:lineitem:sf3000.0

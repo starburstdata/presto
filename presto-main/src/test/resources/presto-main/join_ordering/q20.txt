@@ -1,11 +1,30 @@
-semijoin (PARTITIONED):
-    join (INNER, REPLICATED):
-        tpch:supplier:sf3000.0
-        tpch:nation:sf3000.0
-    cross join:
-        join (RIGHT, PARTITIONED):
-            tpch:lineitem:sf3000.0
-            semijoin (PARTITIONED):
-                tpch:partsupp:sf3000.0
-                tpch:part:sf3000.0
-        values
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        semijoin (PARTITIONED):
+            remote exchange (REPARTITION, HASH, ["suppkey"])
+                join (INNER, REPLICATED):
+                    tpch:supplier:sf3000.0
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPLICATE, BROADCAST, [])
+                            tpch:nation:sf3000.0
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (REPARTITION, HASH, ["suppkey_4"])
+                    cross join:
+                        join (RIGHT, PARTITIONED):
+                            final aggregation over(partkey_18, suppkey_19)
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, HASH, ["partkey_18", "suppkey_19"])
+                                        partial aggregation over(partkey_18, suppkey_19)
+                                            tpch:lineitem:sf3000.0
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["partkey", "suppkey_4"])
+                                    semijoin (PARTITIONED):
+                                        remote exchange (REPARTITION, HASH, ["partkey"])
+                                            tpch:partsupp:sf3000.0
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPARTITION, HASH, ["partkey_8"])
+                                                tpch:part:sf3000.0
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPLICATE, BROADCAST, [])
+                                single aggregation over()
+                                    values

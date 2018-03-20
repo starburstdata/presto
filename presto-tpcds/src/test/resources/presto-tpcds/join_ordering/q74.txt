@@ -1,43 +1,94 @@
-join (INNER, PARTITIONED):
-    join (INNER, PARTITIONED):
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
         join (INNER, PARTITIONED):
-            join (INNER, REPLICATED):
-                join (INNER, REPLICATED):
-                    tpcds:store_sales:sf3000.0
-                    tpcds:date_dim:sf3000.0
-                tpcds:customer:sf3000.0
-            join (INNER, REPLICATED):
-                join (INNER, REPLICATED):
-                    values
-                    values
-                values
-            join (INNER, REPLICATED):
-                join (INNER, REPLICATED):
-                    tpcds:store_sales:sf3000.0
-                    tpcds:date_dim:sf3000.0
-                tpcds:customer:sf3000.0
-            join (INNER, REPLICATED):
-                join (INNER, REPLICATED):
-                    values
-                    values
-                values
-        join (INNER, REPLICATED):
-            join (INNER, REPLICATED):
-                values
-                values
-            values
-        join (INNER, REPLICATED):
-            join (INNER, REPLICATED):
-                tpcds:web_sales:sf3000.0
-                tpcds:date_dim:sf3000.0
-            tpcds:customer:sf3000.0
-    join (INNER, REPLICATED):
-        join (INNER, REPLICATED):
-            values
-            values
-        values
-    join (INNER, REPLICATED):
-        join (INNER, REPLICATED):
-            tpcds:web_sales:sf3000.0
-            tpcds:date_dim:sf3000.0
-        tpcds:customer:sf3000.0
+            join (INNER, PARTITIONED):
+                join (INNER, PARTITIONED):
+                    remote exchange (REPARTITION, HASH, ["c_customer_id_84"])
+                        local exchange (REPARTITION, ROUND_ROBIN, [])
+                            remote exchange (GATHER, SINGLE, [])
+                                final aggregation over(c_customer_id, c_first_name, c_last_name, d_year)
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPARTITION, HASH, ["c_customer_id", "c_first_name", "c_last_name", "d_year"])
+                                            partial aggregation over(c_customer_id, c_first_name, c_last_name, d_year)
+                                                join (INNER, REPLICATED):
+                                                    join (INNER, REPLICATED):
+                                                        tpcds:store_sales:sf3000.0
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                tpcds:date_dim:sf3000.0
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            tpcds:customer:sf3000.0
+                            single aggregation over(c_customer_id_17, c_first_name_24, c_last_name_25, d_year_40)
+                                join (INNER, REPLICATED):
+                                    join (INNER, REPLICATED):
+                                        values
+                                        values
+                                    values
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPARTITION, HASH, ["c_customer_id_303"])
+                            local exchange (REPARTITION, ROUND_ROBIN, [])
+                                remote exchange (GATHER, SINGLE, [])
+                                    final aggregation over(c_customer_id_109, c_first_name_116, c_last_name_117, d_year_155)
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPARTITION, HASH, ["c_customer_id_109", "c_first_name_116", "c_last_name_117", "d_year_155"])
+                                                partial aggregation over(c_customer_id_109, c_first_name_116, c_last_name_117, d_year_155)
+                                                    join (INNER, REPLICATED):
+                                                        join (INNER, REPLICATED):
+                                                            tpcds:store_sales:sf3000.0
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                    tpcds:date_dim:sf3000.0
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                tpcds:customer:sf3000.0
+                                single aggregation over(c_customer_id_201, c_first_name_208, c_last_name_209, d_year_258)
+                                    join (INNER, REPLICATED):
+                                        join (INNER, REPLICATED):
+                                            values
+                                            values
+                                        values
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (REPARTITION, HASH, ["c_customer_id_328"])
+                        single aggregation over(c_customer_id_328, c_first_name_335, c_last_name_336, d_year_374)
+                            join (INNER, REPLICATED):
+                                join (INNER, REPLICATED):
+                                    values
+                                    values
+                                values
+                    remote exchange (REPARTITION, HASH, ["c_customer_id_420"])
+                        final aggregation over(c_customer_id_420, c_first_name_427, c_last_name_428, d_year_477)
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["c_customer_id_420", "c_first_name_427", "c_last_name_428", "d_year_477"])
+                                    partial aggregation over(c_customer_id_420, c_first_name_427, c_last_name_428, d_year_477)
+                                        join (INNER, REPLICATED):
+                                            join (INNER, REPLICATED):
+                                                tpcds:web_sales:sf3000.0
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        tpcds:date_dim:sf3000.0
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    tpcds:customer:sf3000.0
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (REPARTITION, HASH, ["c_customer_id_547"])
+                    single aggregation over(c_customer_id_547, c_first_name_554, c_last_name_555, d_year_593)
+                        join (INNER, REPLICATED):
+                            join (INNER, REPLICATED):
+                                values
+                                values
+                            values
+                remote exchange (REPARTITION, HASH, ["c_customer_id_639"])
+                    final aggregation over(c_customer_id_639, c_first_name_646, c_last_name_647, d_year_696)
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPARTITION, HASH, ["c_customer_id_639", "c_first_name_646", "c_last_name_647", "d_year_696"])
+                                partial aggregation over(c_customer_id_639, c_first_name_646, c_last_name_647, d_year_696)
+                                    join (INNER, REPLICATED):
+                                        join (INNER, REPLICATED):
+                                            tpcds:web_sales:sf3000.0
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    tpcds:date_dim:sf3000.0
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                tpcds:customer:sf3000.0

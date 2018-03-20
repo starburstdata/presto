@@ -1,1 +1,7 @@
-tpch:lineitem:sf3000.0
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        final aggregation over(linestatus, returnflag)
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (REPARTITION, HASH, ["linestatus", "returnflag"])
+                    partial aggregation over(linestatus, returnflag)
+                        tpch:lineitem:sf3000.0

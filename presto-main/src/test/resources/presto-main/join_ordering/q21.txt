@@ -1,11 +1,32 @@
-join (LEFT, PARTITIONED):
-    join (LEFT, PARTITIONED):
-        join (INNER, PARTITIONED):
-            join (INNER, PARTITIONED):
-                join (INNER, REPLICATED):
-                    tpch:lineitem:sf3000.0
-                    tpch:supplier:sf3000.0
-                tpch:orders:sf3000.0
-            tpch:nation:sf3000.0
-        tpch:lineitem:sf3000.0
-    tpch:lineitem:sf3000.0
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        final aggregation over(name)
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (REPARTITION, HASH, ["name"])
+                    partial aggregation over(name)
+                        single aggregation over(commitdate, exists, name, name_7, nationkey, orderkey, orderstatus, receiptdate, suppkey_0, unique)
+                            join (LEFT, PARTITIONED):
+                                final aggregation over(commitdate, name, name_7, nationkey, orderkey, orderstatus, receiptdate, suppkey_0, unique_189)
+                                    local exchange (GATHER, SINGLE, [])
+                                        partial aggregation over(commitdate, name, name_7, nationkey, orderkey, orderstatus, receiptdate, suppkey_0, unique_189)
+                                            join (LEFT, PARTITIONED):
+                                                remote exchange (REPARTITION, local:orders:4500000000, ["orderkey"])
+                                                    join (INNER, PARTITIONED):
+                                                        remote exchange (REPARTITION, HASH, ["nationkey"])
+                                                            join (INNER, PARTITIONED):
+                                                                join (INNER, REPLICATED):
+                                                                    tpch:lineitem:sf3000.0
+                                                                    local exchange (GATHER, SINGLE, [])
+                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                            tpch:supplier:sf3000.0
+                                                                local exchange (GATHER, SINGLE, [])
+                                                                    remote exchange (REPARTITION, local:orders:4500000000, ["orderkey_3"])
+                                                                        tpch:orders:sf3000.0
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPARTITION, HASH, ["nationkey_6"])
+                                                                tpch:nation:sf3000.0
+                                                local exchange (GATHER, SINGLE, [])
+                                                    tpch:lineitem:sf3000.0
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, local:orders:4500000000, ["orderkey_92"])
+                                        tpch:lineitem:sf3000.0

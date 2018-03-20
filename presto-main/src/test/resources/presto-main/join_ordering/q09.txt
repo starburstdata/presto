@@ -1,11 +1,27 @@
-join (INNER, REPLICATED):
-    join (INNER, PARTITIONED):
-        tpch:lineitem:sf3000.0
-        tpch:orders:sf3000.0
-    join (INNER, REPLICATED):
-        join (INNER, REPLICATED):
-            tpch:partsupp:sf3000.0
-            tpch:part:sf3000.0
-        join (INNER, REPLICATED):
-            tpch:supplier:sf3000.0
-            tpch:nation:sf3000.0
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        final aggregation over(expr_18, name_15)
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (REPARTITION, HASH, ["expr_18", "name_15"])
+                    partial aggregation over(expr_18, name_15)
+                        join (INNER, REPLICATED):
+                            join (INNER, PARTITIONED):
+                                tpch:lineitem:sf3000.0
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, local:orders:4500000000, ["orderkey_11"])
+                                        tpch:orders:sf3000.0
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPLICATE, BROADCAST, [])
+                                    join (INNER, REPLICATED):
+                                        join (INNER, REPLICATED):
+                                            tpch:partsupp:sf3000.0
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    tpch:part:sf3000.0
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                join (INNER, REPLICATED):
+                                                    tpch:supplier:sf3000.0
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            tpch:nation:sf3000.0

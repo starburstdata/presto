@@ -1,11 +1,34 @@
-semijoin (PARTITIONED):
-    join (INNER, REPLICATED):
-        join (INNER, REPLICATED):
-            tpcds:store_sales:sf3000.0
-            tpcds:date_dim:sf3000.0
-        tpcds:store:sf3000.0
-    join (INNER, REPLICATED):
-        join (INNER, REPLICATED):
-            tpcds:store_sales:sf3000.0
-            tpcds:date_dim:sf3000.0
-        tpcds:store:sf3000.0
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        local exchange (GATHER, SINGLE, [])
+            remote exchange (REPARTITION, HASH, ["expr_111", "expr_112"])
+                final aggregation over(groupid, s_county$gid, s_state$gid_103)
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPARTITION, HASH, ["groupid", "s_county$gid", "s_state$gid_103"])
+                            partial aggregation over(groupid, s_county$gid, s_state$gid_103)
+                                semijoin (PARTITIONED):
+                                    remote exchange (REPARTITION, HASH, ["s_state"])
+                                        join (INNER, REPLICATED):
+                                            join (INNER, REPLICATED):
+                                                tpcds:store_sales:sf3000.0
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        tpcds:date_dim:sf3000.0
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    tpcds:store:sf3000.0
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPARTITION, HASH, ["s_state_48"])
+                                            final aggregation over(s_state_48)
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPARTITION, HASH, ["s_state_48"])
+                                                        partial aggregation over(s_state_48)
+                                                            join (INNER, REPLICATED):
+                                                                join (INNER, REPLICATED):
+                                                                    tpcds:store_sales:sf3000.0
+                                                                    local exchange (GATHER, SINGLE, [])
+                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                            tpcds:date_dim:sf3000.0
+                                                                local exchange (GATHER, SINGLE, [])
+                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                        tpcds:store:sf3000.0

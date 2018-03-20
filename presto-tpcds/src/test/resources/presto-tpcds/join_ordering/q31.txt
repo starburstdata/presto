@@ -1,35 +1,91 @@
-join (INNER, PARTITIONED):
-    join (INNER, PARTITIONED):
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
         join (INNER, PARTITIONED):
-            join (INNER, REPLICATED):
-                join (INNER, REPLICATED):
-                    tpcds:store_sales:sf3000.0
-                    tpcds:date_dim:sf3000.0
-                tpcds:customer_address:sf3000.0
-            join (INNER, REPLICATED):
-                join (INNER, REPLICATED):
-                    tpcds:store_sales:sf3000.0
-                    tpcds:date_dim:sf3000.0
-                tpcds:customer_address:sf3000.0
-        join (INNER, PARTITIONED):
-            join (INNER, REPLICATED):
-                join (INNER, REPLICATED):
-                    tpcds:web_sales:sf3000.0
-                    tpcds:date_dim:sf3000.0
-                tpcds:customer_address:sf3000.0
-            join (INNER, REPLICATED):
-                join (INNER, REPLICATED):
-                    tpcds:web_sales:sf3000.0
-                    tpcds:date_dim:sf3000.0
-                tpcds:customer_address:sf3000.0
-    join (INNER, PARTITIONED):
-        join (INNER, REPLICATED):
-            join (INNER, REPLICATED):
-                tpcds:store_sales:sf3000.0
-                tpcds:date_dim:sf3000.0
-            tpcds:customer_address:sf3000.0
-        join (INNER, REPLICATED):
-            join (INNER, REPLICATED):
-                tpcds:web_sales:sf3000.0
-                tpcds:date_dim:sf3000.0
-            tpcds:customer_address:sf3000.0
+            join (INNER, PARTITIONED):
+                join (INNER, PARTITIONED):
+                    final aggregation over(ca_county_81, d_qoy_56, d_year_52)
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPARTITION, HASH, ["ca_county_81", "d_qoy_56", "d_year_52"])
+                                partial aggregation over(ca_county_81, d_qoy_56, d_year_52)
+                                    join (INNER, REPLICATED):
+                                        join (INNER, REPLICATED):
+                                            tpcds:store_sales:sf3000.0
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    tpcds:date_dim:sf3000.0
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                tpcds:customer_address:sf3000.0
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPARTITION, HASH, ["ca_county_174", NullableValue{type=integer, value=2000}, NullableValue{type=integer, value=2}])
+                            final aggregation over(ca_county_174, d_qoy_149, d_year_145)
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, HASH, ["ca_county_174", "d_qoy_149", "d_year_145"])
+                                        partial aggregation over(ca_county_174, d_qoy_149, d_year_145)
+                                            join (INNER, REPLICATED):
+                                                join (INNER, REPLICATED):
+                                                    tpcds:store_sales:sf3000.0
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            tpcds:date_dim:sf3000.0
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        tpcds:customer_address:sf3000.0
+                join (INNER, PARTITIONED):
+                    final aggregation over(ca_county_347, d_qoy_322, d_year_318)
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPARTITION, HASH, ["ca_county_347", "d_qoy_322", "d_year_318"])
+                                partial aggregation over(ca_county_347, d_qoy_322, d_year_318)
+                                    join (INNER, REPLICATED):
+                                        join (INNER, REPLICATED):
+                                            tpcds:web_sales:sf3000.0
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    tpcds:date_dim:sf3000.0
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                tpcds:customer_address:sf3000.0
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPARTITION, HASH, ["ca_county_451", NullableValue{type=integer, value=2000}, NullableValue{type=integer, value=2}])
+                            final aggregation over(ca_county_451, d_qoy_426, d_year_422)
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, HASH, ["ca_county_451", "d_qoy_426", "d_year_422"])
+                                        partial aggregation over(ca_county_451, d_qoy_426, d_year_422)
+                                            join (INNER, REPLICATED):
+                                                join (INNER, REPLICATED):
+                                                    tpcds:web_sales:sf3000.0
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            tpcds:date_dim:sf3000.0
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        tpcds:customer_address:sf3000.0
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (REPARTITION, HASH, ["ca_county", NullableValue{type=integer, value=2000}, NullableValue{type=integer, value=2}])
+                    join (INNER, PARTITIONED):
+                        final aggregation over(ca_county, d_qoy, d_year)
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["ca_county", "d_qoy", "d_year"])
+                                    partial aggregation over(ca_county, d_qoy, d_year)
+                                        join (INNER, REPLICATED):
+                                            join (INNER, REPLICATED):
+                                                tpcds:store_sales:sf3000.0
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        tpcds:date_dim:sf3000.0
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    tpcds:customer_address:sf3000.0
+                        final aggregation over(ca_county_244, d_qoy_219, d_year_215)
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["ca_county_244", "d_qoy_219", "d_year_215"])
+                                    partial aggregation over(ca_county_244, d_qoy_219, d_year_215)
+                                        join (INNER, REPLICATED):
+                                            join (INNER, REPLICATED):
+                                                tpcds:web_sales:sf3000.0
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        tpcds:date_dim:sf3000.0
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    tpcds:customer_address:sf3000.0

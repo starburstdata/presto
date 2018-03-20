@@ -24,17 +24,12 @@ import java.nio.file.Paths;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.COST_BASED;
-
 /**
  * This class tests cost-based optimization rules related to joins. It contains unmodified TPCDS queries.
  * This class is using TPCDS connector configured in way to mock Hive connector with unpartitioned TPCDS tables.
  */
-public class TestTpcdsJoinReordering
-        extends BaseJoinReorderingTest
+public class TestTpcdsCostBasedPlan
+        extends BaseCostBasedPlanTest
 {
     /*
      * CAUTION: The expected plans here are not necessarily optimal yet. Their role is to prevent
@@ -43,14 +38,9 @@ public class TestTpcdsJoinReordering
      * large amount of data.
      */
 
-    public TestTpcdsJoinReordering()
+    public TestTpcdsCostBasedPlan()
     {
-        super(
-                "sf3000.0",
-                "presto-tpcds",
-                ImmutableMap.of(
-                        JOIN_REORDERING_STRATEGY, COST_BASED.name(),
-                        JOIN_DISTRIBUTION_TYPE, AUTOMATIC.name()));
+        super("sf3000.0", "presto-tpcds");
     }
 
     @Override
@@ -90,6 +80,6 @@ public class TestTpcdsJoinReordering
 
     public static void main(String[] args)
     {
-        new TestTpcdsJoinReordering().generate();
+        new TestTpcdsCostBasedPlan().generate();
     }
 }

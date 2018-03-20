@@ -1,3 +1,11 @@
-join (INNER, PARTITIONED):
-    tpch:orders:sf3000.0
-    tpch:lineitem:sf3000.0
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        final aggregation over(shipmode)
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (REPARTITION, HASH, ["shipmode"])
+                    partial aggregation over(shipmode)
+                        join (INNER, PARTITIONED):
+                            tpch:orders:sf3000.0
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, local:orders:4500000000, ["orderkey_0"])
+                                    tpch:lineitem:sf3000.0

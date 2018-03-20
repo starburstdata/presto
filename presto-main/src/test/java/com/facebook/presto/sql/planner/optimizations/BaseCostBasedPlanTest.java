@@ -15,9 +15,12 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.sql.planner.LogicalPlanner;
+import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -35,6 +38,10 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.COST_BASED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.testing.TestngUtils.toDataProvider;
@@ -42,18 +49,21 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.exists;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.testng.Assert.assertEquals;
 
-public abstract class BaseJoinReorderingTest
+public abstract class BaseCostBasedPlanTest
         extends BasePlanTest
 {
     private final Path mavenModulePath;
 
-    public BaseJoinReorderingTest(String schema, String mavenModule, ImmutableMap<String, String> sessionProperties)
+    public BaseCostBasedPlanTest(String schema, String mavenModule)
     {
-        super(schema, sessionProperties);
+        super(schema, ImmutableMap.of(
+                JOIN_REORDERING_STRATEGY, COST_BASED.name(),
+                JOIN_DISTRIBUTION_TYPE, AUTOMATIC.name()));
         this.mavenModulePath = Paths.get(requireNonNull(mavenModule, "mavenModulePath is null"));
     }
 
@@ -171,6 +181,39 @@ public abstract class BaseJoinReorderingTest
             else {
                 lines.add(format("%sjoin (%s, %s):", indentString(indent), node.getType(), distributionType));
             }
+
+            return visitPlan(node, indent + 1);
+        }
+
+        @Override
+        public Void visitExchange(ExchangeNode node, Integer indent)
+        {
+            Partitioning partitioning = node.getPartitioningScheme().getPartitioning();
+            lines.add(indentString(indent) +
+                    format(
+                            "%s exchange (%s, %s, %s)",
+                            node.getScope().name().toLowerCase(ENGLISH),
+                            node.getType(),
+                            partitioning.getHandle(),
+                            partitioning.getArguments().stream()
+                                    .map(Object::toString)
+                                    .sorted() // Currently, order of hash columns is not deterministic
+                                    .collect(joining(", ", "[", "]"))));
+
+            return visitPlan(node, indent + 1);
+        }
+
+        @Override
+        public Void visitAggregation(AggregationNode node, Integer indent)
+        {
+            lines.add(indentString(indent) +
+                    format(
+                            "%s aggregation over(%s)",
+                            node.getStep().name().toLowerCase(ENGLISH),
+                            node.getGroupingKeys().stream()
+                                    .map(Object::toString)
+                                    .sorted()
+                                    .collect(joining(", "))));
 
             return visitPlan(node, indent + 1);
         }

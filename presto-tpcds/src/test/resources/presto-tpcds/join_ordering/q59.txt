@@ -1,15 +1,40 @@
-join (INNER, PARTITIONED):
-    join (INNER, REPLICATED):
-        join (INNER, REPLICATED):
-            join (INNER, REPLICATED):
-                tpcds:store_sales:sf3000.0
-                tpcds:date_dim:sf3000.0
-            tpcds:date_dim:sf3000.0
-        tpcds:store:sf3000.0
-    join (INNER, REPLICATED):
-        join (INNER, REPLICATED):
-            join (INNER, REPLICATED):
-                tpcds:store_sales:sf3000.0
-                tpcds:date_dim:sf3000.0
-            tpcds:date_dim:sf3000.0
-        tpcds:store:sf3000.0
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        join (INNER, PARTITIONED):
+            remote exchange (REPARTITION, HASH, ["d_week_seq", "s_store_id"])
+                join (INNER, REPLICATED):
+                    join (INNER, REPLICATED):
+                        final aggregation over(d_week_seq, ss_store_sk)
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["d_week_seq", "ss_store_sk"])
+                                    partial aggregation over(d_week_seq, ss_store_sk)
+                                        join (INNER, REPLICATED):
+                                            tpcds:store_sales:sf3000.0
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    tpcds:date_dim:sf3000.0
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPLICATE, BROADCAST, [])
+                                tpcds:date_dim:sf3000.0
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPLICATE, BROADCAST, [])
+                            tpcds:store:sf3000.0
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (REPARTITION, HASH, ["expr_374", "s_store_id_248"])
+                    join (INNER, REPLICATED):
+                        join (INNER, REPLICATED):
+                            final aggregation over(d_week_seq_153, ss_store_sk_133)
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, HASH, ["d_week_seq_153", "ss_store_sk_133"])
+                                        partial aggregation over(d_week_seq_153, ss_store_sk_133)
+                                            join (INNER, REPLICATED):
+                                                tpcds:store_sales:sf3000.0
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        tpcds:date_dim:sf3000.0
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPLICATE, BROADCAST, [])
+                                    tpcds:date_dim:sf3000.0
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPLICATE, BROADCAST, [])
+                                tpcds:store:sf3000.0

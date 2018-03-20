@@ -1,19 +1,45 @@
-cross join:
-    join (RIGHT, PARTITIONED):
-        join (INNER, REPLICATED):
-            tpch:partsupp:sf3000.0
-            join (INNER, REPLICATED):
-                tpch:supplier:sf3000.0
-                join (INNER, REPLICATED):
-                    tpch:nation:sf3000.0
-                    tpch:region:sf3000.0
-        join (INNER, PARTITIONED):
-            join (INNER, REPLICATED):
-                tpch:partsupp:sf3000.0
-                tpch:part:sf3000.0
-            join (INNER, REPLICATED):
-                tpch:supplier:sf3000.0
-                join (INNER, REPLICATED):
-                    tpch:nation:sf3000.0
-                    tpch:region:sf3000.0
-    values
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        cross join:
+            join (RIGHT, PARTITIONED):
+                final aggregation over(partkey_15)
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPARTITION, HASH, ["partkey_15"])
+                            partial aggregation over(partkey_15)
+                                join (INNER, REPLICATED):
+                                    tpch:partsupp:sf3000.0
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            join (INNER, REPLICATED):
+                                                tpch:supplier:sf3000.0
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        join (INNER, REPLICATED):
+                                                            tpch:nation:sf3000.0
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                    tpch:region:sf3000.0
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (REPARTITION, HASH, ["partkey_3"])
+                        join (INNER, PARTITIONED):
+                            remote exchange (REPARTITION, HASH, ["suppkey_4"])
+                                join (INNER, REPLICATED):
+                                    tpch:partsupp:sf3000.0
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            tpch:part:sf3000.0
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["suppkey"])
+                                    join (INNER, REPLICATED):
+                                        tpch:supplier:sf3000.0
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                join (INNER, REPLICATED):
+                                                    tpch:nation:sf3000.0
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            tpch:region:sf3000.0
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (REPLICATE, BROADCAST, [])
+                    single aggregation over()
+                        values

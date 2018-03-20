@@ -1,18 +1,48 @@
-join (INNER, REPLICATED):
-    join (INNER, REPLICATED):
-        join (INNER, REPLICATED):
-            join (INNER, REPLICATED):
-                tpcds:web_sales:sf3000.0
-                tpcds:ship_mode:sf3000.0
-            tpcds:time_dim:sf3000.0
-        tpcds:date_dim:sf3000.0
-    tpcds:warehouse:sf3000.0
-join (INNER, REPLICATED):
-    join (INNER, REPLICATED):
-        join (INNER, REPLICATED):
-            join (INNER, REPLICATED):
-                tpcds:catalog_sales:sf3000.0
-                tpcds:ship_mode:sf3000.0
-            tpcds:time_dim:sf3000.0
-        tpcds:date_dim:sf3000.0
-    tpcds:warehouse:sf3000.0
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        final aggregation over(concat_353, d_year_354, w_city_349, w_country_352, w_county_350, w_state_351, w_warehouse_name_347, w_warehouse_sq_ft_348)
+            local exchange (REPARTITION, HASH, ["concat_353", "d_year_354", "w_city_349", "w_country_352", "w_county_350", "w_state_351", "w_warehouse_name_347", "w_warehouse_sq_ft_348"])
+                partial aggregation over(concat, d_year, w_city, w_country, w_county, w_state, w_warehouse_name, w_warehouse_sq_ft)
+                    final aggregation over(d_year, w_city, w_country, w_county, w_state, w_warehouse_name, w_warehouse_sq_ft)
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPARTITION, HASH, ["d_year", "w_city", "w_country", "w_county", "w_state", "w_warehouse_name", "w_warehouse_sq_ft"])
+                                partial aggregation over(d_year, w_city, w_country, w_county, w_state, w_warehouse_name, w_warehouse_sq_ft)
+                                    join (INNER, REPLICATED):
+                                        join (INNER, REPLICATED):
+                                            join (INNER, REPLICATED):
+                                                join (INNER, REPLICATED):
+                                                    tpcds:web_sales:sf3000.0
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            tpcds:ship_mode:sf3000.0
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        tpcds:time_dim:sf3000.0
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    tpcds:date_dim:sf3000.0
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                tpcds:warehouse:sf3000.0
+                partial aggregation over(concat_289, d_year_159, w_city_147, w_country_151, w_county_148, w_state_149, w_warehouse_name_141, w_warehouse_sq_ft_142)
+                    final aggregation over(d_year_159, w_city_147, w_country_151, w_county_148, w_state_149, w_warehouse_name_141, w_warehouse_sq_ft_142)
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPARTITION, HASH, ["d_year_159", "w_city_147", "w_country_151", "w_county_148", "w_state_149", "w_warehouse_name_141", "w_warehouse_sq_ft_142"])
+                                partial aggregation over(d_year_159, w_city_147, w_country_151, w_county_148, w_state_149, w_warehouse_name_141, w_warehouse_sq_ft_142)
+                                    join (INNER, REPLICATED):
+                                        join (INNER, REPLICATED):
+                                            join (INNER, REPLICATED):
+                                                join (INNER, REPLICATED):
+                                                    tpcds:catalog_sales:sf3000.0
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            tpcds:ship_mode:sf3000.0
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        tpcds:time_dim:sf3000.0
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    tpcds:date_dim:sf3000.0
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                tpcds:warehouse:sf3000.0

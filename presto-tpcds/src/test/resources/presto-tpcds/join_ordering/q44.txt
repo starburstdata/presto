@@ -1,11 +1,50 @@
-join (INNER, PARTITIONED):
-    join (INNER, PARTITIONED):
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
         join (INNER, PARTITIONED):
-            cross join:
-                tpcds:store_sales:sf3000.0
-                tpcds:store_sales:sf3000.0
-            cross join:
-                tpcds:store_sales:sf3000.0
-                tpcds:store_sales:sf3000.0
-        tpcds:item:sf3000.0
-    tpcds:item:sf3000.0
+            remote exchange (REPARTITION, HASH, ["ss_item_sk_62"])
+                join (INNER, PARTITIONED):
+                    remote exchange (REPARTITION, HASH, ["ss_item_sk"])
+                        join (INNER, PARTITIONED):
+                            remote exchange (REPARTITION, HASH, ["rank"])
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (GATHER, SINGLE, [])
+                                        cross join:
+                                            final aggregation over(ss_item_sk)
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPARTITION, HASH, ["ss_item_sk"])
+                                                        partial aggregation over(ss_item_sk)
+                                                            tpcds:store_sales:sf3000.0
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (GATHER, SINGLE, [])
+                                                            final aggregation over(ss_store_sk_13)
+                                                                local exchange (GATHER, SINGLE, [])
+                                                                    remote exchange (REPARTITION, HASH, ["ss_store_sk_13"])
+                                                                        partial aggregation over(ss_store_sk_13)
+                                                                            tpcds:store_sales:sf3000.0
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["rank_134"])
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (GATHER, SINGLE, [])
+                                            cross join:
+                                                final aggregation over(ss_item_sk_62)
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPARTITION, HASH, ["ss_item_sk_62"])
+                                                            partial aggregation over(ss_item_sk_62)
+                                                                tpcds:store_sales:sf3000.0
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (GATHER, SINGLE, [])
+                                                                final aggregation over(ss_store_sk_100)
+                                                                    local exchange (GATHER, SINGLE, [])
+                                                                        remote exchange (REPARTITION, HASH, ["ss_store_sk_100"])
+                                                                            partial aggregation over(ss_store_sk_100)
+                                                                                tpcds:store_sales:sf3000.0
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPARTITION, HASH, ["i_item_sk"])
+                            tpcds:item:sf3000.0
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (REPARTITION, HASH, ["i_item_sk_151"])
+                    tpcds:item:sf3000.0

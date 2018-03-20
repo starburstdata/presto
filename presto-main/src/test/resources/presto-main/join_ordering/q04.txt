@@ -1,5 +1,17 @@
-cross join:
-    join (RIGHT, PARTITIONED):
-        tpch:lineitem:sf3000.0
-        tpch:orders:sf3000.0
-    values
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        final aggregation over(orderpriority)
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (REPARTITION, HASH, ["orderpriority"])
+                    partial aggregation over(orderpriority)
+                        cross join:
+                            join (RIGHT, PARTITIONED):
+                                single aggregation over(orderkey_0)
+                                    tpch:lineitem:sf3000.0
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, local:orders:4500000000, ["orderkey"])
+                                        tpch:orders:sf3000.0
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPLICATE, BROADCAST, [])
+                                    single aggregation over()
+                                        values

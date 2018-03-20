@@ -16,25 +16,20 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.LocalQueryRunner;
-import com.google.common.collect.ImmutableMap;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.COST_BASED;
 import static java.lang.String.format;
 
 /**
  * This class tests cost-based optimization rules related to joins. It contains unmodified TPCH queries.
  * This class is using TPCH connector configured in way to mock Hive connector with unpartitioned TPCH tables.
  */
-public class TestTpchJoinReordering
-        extends BaseJoinReorderingTest
+public class TestTpchCostBasedPlan
+        extends BaseCostBasedPlanTest
 {
     /*
      * CAUTION: The expected plans here are not necessarily optimal yet. Their role is to prevent
@@ -43,14 +38,9 @@ public class TestTpchJoinReordering
      * large amount of data.
      */
 
-    public TestTpchJoinReordering()
+    public TestTpchCostBasedPlan()
     {
-        super(
-                "sf3000.0",
-                "presto-main",
-                ImmutableMap.of(
-                        JOIN_REORDERING_STRATEGY, COST_BASED.name(),
-                        JOIN_DISTRIBUTION_TYPE, AUTOMATIC.name()));
+        super("sf3000.0", "presto-main");
     }
 
     @Override
@@ -74,6 +64,6 @@ public class TestTpchJoinReordering
 
     public static void main(String[] args)
     {
-        new TestTpchJoinReordering().generate();
+        new TestTpchCostBasedPlan().generate();
     }
 }

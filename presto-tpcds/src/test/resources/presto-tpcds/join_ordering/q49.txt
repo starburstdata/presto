@@ -1,15 +1,54 @@
-join (INNER, PARTITIONED):
-    tpcds:web_returns:sf3000.0
-    join (INNER, REPLICATED):
-        tpcds:web_sales:sf3000.0
-        tpcds:date_dim:sf3000.0
-join (INNER, PARTITIONED):
-    tpcds:catalog_returns:sf3000.0
-    join (INNER, REPLICATED):
-        tpcds:catalog_sales:sf3000.0
-        tpcds:date_dim:sf3000.0
-join (INNER, PARTITIONED):
-    tpcds:store_returns:sf3000.0
-    join (INNER, REPLICATED):
-        tpcds:store_sales:sf3000.0
-        tpcds:date_dim:sf3000.0
+local exchange (GATHER, SINGLE, [])
+    final aggregation over(expr_255, expr_256, expr_257, expr_258, expr_259)
+        local exchange (REPARTITION, HASH, ["expr_255", "expr_256", "expr_257", "expr_258", "expr_259"])
+            partial aggregation over(expr_15, expr_56, rank, rank_26, wr_item_sk)
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (GATHER, SINGLE, [])
+                        final aggregation over(wr_item_sk)
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["wr_item_sk"])
+                                    partial aggregation over(wr_item_sk)
+                                        join (INNER, PARTITIONED):
+                                            remote exchange (REPARTITION, HASH, ["wr_item_sk", "wr_order_number"])
+                                                tpcds:web_returns:sf3000.0
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPARTITION, HASH, ["ws_item_sk", "ws_order_number"])
+                                                    join (INNER, REPLICATED):
+                                                        tpcds:web_sales:sf3000.0
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                tpcds:date_dim:sf3000.0
+            partial aggregation over(cr_item_sk, expr_108, expr_143, rank_120, rank_122)
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (GATHER, SINGLE, [])
+                        final aggregation over(cr_item_sk)
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["cr_item_sk"])
+                                    partial aggregation over(cr_item_sk)
+                                        join (INNER, PARTITIONED):
+                                            remote exchange (REPARTITION, HASH, ["cr_item_sk", "cr_order_number"])
+                                                tpcds:catalog_returns:sf3000.0
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPARTITION, HASH, ["cs_item_sk", "cs_order_number"])
+                                                    join (INNER, REPLICATED):
+                                                        tpcds:catalog_sales:sf3000.0
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                tpcds:date_dim:sf3000.0
+            partial aggregation over(expr_205, expr_250, rank_217, rank_219, sr_item_sk)
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (GATHER, SINGLE, [])
+                        final aggregation over(sr_item_sk)
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["sr_item_sk"])
+                                    partial aggregation over(sr_item_sk)
+                                        join (INNER, PARTITIONED):
+                                            remote exchange (REPARTITION, HASH, ["sr_item_sk", "sr_ticket_number"])
+                                                tpcds:store_returns:sf3000.0
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPARTITION, HASH, ["ss_item_sk", "ss_ticket_number"])
+                                                    join (INNER, REPLICATED):
+                                                        tpcds:store_sales:sf3000.0
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                tpcds:date_dim:sf3000.0

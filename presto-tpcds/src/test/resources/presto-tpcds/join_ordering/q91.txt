@@ -1,13 +1,31 @@
-join (INNER, REPLICATED):
-    join (INNER, REPLICATED):
-        join (INNER, REPLICATED):
-            tpcds:catalog_returns:sf3000.0
-            join (INNER, REPLICATED):
-                tpcds:customer_address:sf3000.0
-                join (INNER, REPLICATED):
-                    join (INNER, REPLICATED):
-                        tpcds:customer:sf3000.0
-                        tpcds:customer_demographics:sf3000.0
-                    tpcds:household_demographics:sf3000.0
-        tpcds:date_dim:sf3000.0
-    tpcds:call_center:sf3000.0
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        final aggregation over(cc_call_center_id, cc_manager, cc_name, cd_education_status, cd_marital_status)
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (REPARTITION, HASH, ["cc_call_center_id", "cc_manager", "cc_name", "cd_education_status", "cd_marital_status"])
+                    partial aggregation over(cc_call_center_id, cc_manager, cc_name, cd_education_status, cd_marital_status)
+                        join (INNER, REPLICATED):
+                            join (INNER, REPLICATED):
+                                join (INNER, REPLICATED):
+                                    tpcds:catalog_returns:sf3000.0
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            join (INNER, REPLICATED):
+                                                tpcds:customer_address:sf3000.0
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        join (INNER, REPLICATED):
+                                                            join (INNER, REPLICATED):
+                                                                tpcds:customer:sf3000.0
+                                                                local exchange (GATHER, SINGLE, [])
+                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                        tpcds:customer_demographics:sf3000.0
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                    tpcds:household_demographics:sf3000.0
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPLICATE, BROADCAST, [])
+                                        tpcds:date_dim:sf3000.0
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPLICATE, BROADCAST, [])
+                                    tpcds:call_center:sf3000.0

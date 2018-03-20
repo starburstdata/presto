@@ -1,7 +1,21 @@
-cross join:
-    join (LEFT, PARTITIONED):
-        join (INNER, REPLICATED):
-            tpch:lineitem:sf3000.0
-            tpch:part:sf3000.0
-        tpch:lineitem:sf3000.0
-    values
+final aggregation over()
+    local exchange (GATHER, SINGLE, [])
+        remote exchange (GATHER, SINGLE, [])
+            partial aggregation over()
+                cross join:
+                    join (LEFT, PARTITIONED):
+                        remote exchange (REPARTITION, HASH, ["partkey"])
+                            join (INNER, REPLICATED):
+                                tpch:lineitem:sf3000.0
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPLICATE, BROADCAST, [])
+                                        tpch:part:sf3000.0
+                        final aggregation over(partkey_4)
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["partkey_4"])
+                                    partial aggregation over(partkey_4)
+                                        tpch:lineitem:sf3000.0
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPLICATE, BROADCAST, [])
+                            single aggregation over()
+                                values

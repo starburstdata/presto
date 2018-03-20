@@ -1,13 +1,39 @@
-join (INNER, PARTITIONED):
-    join (INNER, PARTITIONED):
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
         join (INNER, PARTITIONED):
-            tpcds:web_sales:sf3000.0
-            tpcds:catalog_sales:sf3000.0
-            tpcds:date_dim:sf3000.0
-        tpcds:date_dim:sf3000.0
-    join (INNER, PARTITIONED):
-        join (INNER, PARTITIONED):
-            tpcds:web_sales:sf3000.0
-            tpcds:catalog_sales:sf3000.0
-            tpcds:date_dim:sf3000.0
-        tpcds:date_dim:sf3000.0
+            join (INNER, PARTITIONED):
+                final aggregation over(d_week_seq)
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPARTITION, HASH, ["d_week_seq"])
+                            partial aggregation over(d_week_seq)
+                                join (INNER, PARTITIONED):
+                                    local exchange (REPARTITION, ROUND_ROBIN, [])
+                                        remote exchange (REPARTITION, HASH, ["ws_sold_date_sk"])
+                                            tpcds:web_sales:sf3000.0
+                                        remote exchange (REPARTITION, HASH, ["cs_sold_date_sk"])
+                                            tpcds:catalog_sales:sf3000.0
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPARTITION, HASH, ["d_date_sk"])
+                                            tpcds:date_dim:sf3000.0
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (REPARTITION, HASH, ["d_week_seq_89"])
+                        tpcds:date_dim:sf3000.0
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (REPARTITION, HASH, ["expr_408"])
+                    join (INNER, PARTITIONED):
+                        final aggregation over(d_week_seq_238)
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["d_week_seq_238"])
+                                    partial aggregation over(d_week_seq_238)
+                                        join (INNER, PARTITIONED):
+                                            local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                remote exchange (REPARTITION, HASH, ["ws_sold_date_sk_138"])
+                                                    tpcds:web_sales:sf3000.0
+                                                remote exchange (REPARTITION, HASH, ["cs_sold_date_sk_184"])
+                                                    tpcds:catalog_sales:sf3000.0
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPARTITION, HASH, ["d_date_sk_234"])
+                                                    tpcds:date_dim:sf3000.0
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPARTITION, HASH, ["d_week_seq_329"])
+                                tpcds:date_dim:sf3000.0
