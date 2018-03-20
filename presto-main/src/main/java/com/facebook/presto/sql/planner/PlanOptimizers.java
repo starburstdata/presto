@@ -17,11 +17,15 @@ import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculator.EstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.execution.TaskManagerConfig;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.rule.AddExchangesBelowPartialAggregationOverGroupIdRuleSet;
 import com.facebook.presto.sql.planner.iterative.rule.AddIntermediateAggregations;
 import com.facebook.presto.sql.planner.iterative.rule.CanonicalizeExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.CreatePartialTopN;
@@ -118,6 +122,9 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Set;
+import java.util.function.IntSupplier;
+
+import static com.facebook.presto.cost.CostCalculatorUsingExchanges.currentNumberOfWorkerNodes;
 
 public class PlanOptimizers
 {
@@ -130,6 +137,9 @@ public class PlanOptimizers
             Metadata metadata,
             SqlParser sqlParser,
             FeaturesConfig featuresConfig,
+            NodeSchedulerConfig nodeSchedulerConfig,
+            InternalNodeManager nodeManager,
+            TaskManagerConfig taskManagerConfig,
             MBeanExporter exporter,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
@@ -139,6 +149,8 @@ public class PlanOptimizers
         this(metadata,
                 sqlParser,
                 featuresConfig,
+                currentNumberOfWorkerNodes(nodeSchedulerConfig.isIncludeCoordinator(), nodeManager),
+                taskManagerConfig,
                 false,
                 exporter,
                 statsCalculator,
@@ -163,6 +175,8 @@ public class PlanOptimizers
             Metadata metadata,
             SqlParser sqlParser,
             FeaturesConfig featuresConfig,
+            IntSupplier numberOfNodes,
+            TaskManagerConfig taskManagerConfig,
             boolean forceSingleNode,
             MBeanExporter exporter,
             StatsCalculator statsCalculator,
@@ -444,6 +458,11 @@ public class PlanOptimizers
                         new PushPartialAggregationThroughJoin(),
                         new PushPartialAggregationThroughExchange(metadata.getFunctionRegistry()),
                         new PruneJoinColumns())));
+        builder.add(new IterativeOptimizer(
+                stats,
+                statsCalculator,
+                costCalculator,
+                new AddExchangesBelowPartialAggregationOverGroupIdRuleSet(metadata, sqlParser, numberOfNodes, taskManagerConfig).rules()));
         builder.add(new IterativeOptimizer(
                 stats,
                 statsCalculator,

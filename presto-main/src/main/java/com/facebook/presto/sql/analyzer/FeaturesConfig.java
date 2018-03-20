@@ -96,6 +96,7 @@ public class FeaturesConfig
     private double spillMaxUsedSpaceThreshold = 0.9;
     private boolean iterativeOptimizerEnabled = true;
     private boolean enableNewStatsCalculator = true;
+    private boolean enableForcedExchangeBelowGroupId = true;
     private boolean pushAggregationThroughJoin = true;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
@@ -470,6 +471,18 @@ public class FeaturesConfig
     public FeaturesConfig setEnableNewStatsCalculator(boolean enableNewStatsCalculator)
     {
         this.enableNewStatsCalculator = enableNewStatsCalculator;
+        return this;
+    }
+
+    public boolean isEnableForcedExchangeBelowGroupId()
+    {
+        return enableForcedExchangeBelowGroupId;
+    }
+
+    @Config("enable-forced-exchange-below-group-id")
+    public FeaturesConfig setEnableForcedExchangeBelowGroupId(boolean enableForcedExchangeBelowGroupId)
+    {
+        this.enableForcedExchangeBelowGroupId = enableForcedExchangeBelowGroupId;
         return this;
     }
 
