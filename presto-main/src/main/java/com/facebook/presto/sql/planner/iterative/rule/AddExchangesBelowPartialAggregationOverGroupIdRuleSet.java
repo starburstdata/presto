@@ -67,6 +67,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.Double.isNaN;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -310,7 +311,7 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
                         .collect(toImmutableList());
 
                 double keyWidth = sourceStats.getOutputSizeInBytes(sourceSymbols) / sourceStats.getOutputRowCount();
-                double keyNdv = estimatedGroupCount(sourceSymbols, sourceStats);
+                double keyNdv = min(estimatedGroupCount(sourceSymbols, sourceStats), sourceStats.getOutputRowCount());
 
                 keysMemoryRequirements += keyWidth * keyNdv;
             }
