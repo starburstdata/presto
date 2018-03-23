@@ -24,9 +24,9 @@ import java.util.Map;
 
 import static com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation.LEGACY;
 import static com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation.NEW;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.REPARTITIONED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.REPLICATED;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.COST_BASED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.SPILLER_SPILL_PATH;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.SPILL_ENABLED;
@@ -51,10 +51,10 @@ public class TestFeaturesConfig
                 .setNetworkCostWeight(15)
                 .setResourceGroupsEnabled(false)
                 .setDistributedIndexJoinsEnabled(false)
-                .setJoinDistributionType(REPARTITIONED)
+                .setJoinDistributionType(AUTOMATIC)
                 .setFastInequalityJoins(true)
                 .setColocatedJoinsEnabled(false)
-                .setJoinReorderingStrategy(ELIMINATE_CROSS_JOINS)
+                .setJoinReorderingStrategy(COST_BASED)
                 .setRedistributeWrites(true)
                 .setScaleWriters(false)
                 .setWriterMinSize(new DataSize(32, MEGABYTE))

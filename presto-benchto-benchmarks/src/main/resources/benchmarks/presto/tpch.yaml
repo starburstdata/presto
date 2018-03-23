@@ -29,3 +29,4 @@ variables:
     schema: ${tpch_3000}
     join_reordering_strategy: ELIMINATE_CROSS_JOINS, COST_BASED
     join_distribution_type: REPARTITIONED, AUTOMATIC
+
