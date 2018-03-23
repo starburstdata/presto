@@ -94,14 +94,14 @@ public class TestLogicalPlanner
                         node(DistinctLimitNode.class,
                                 anyTree(
                                         join(INNER,
-                                                ImmutableList.of(equiJoinClause("O_SHIPPRIORITY", "L_LINENUMBER")),
+                                                ImmutableList.of(equiJoinClause("L_LINENUMBER", "O_SHIPPRIORITY")),
                                                 Optional.of("O_ORDERKEY < L_ORDERKEY"),
-                                                any(tableScan("orders", ImmutableMap.of(
-                                                        "O_SHIPPRIORITY", "shippriority",
-                                                        "O_ORDERKEY", "orderkey"))),
-                                                anyTree(tableScan("lineitem", ImmutableMap.of(
+                                                any(tableScan("lineitem", ImmutableMap.of(
                                                         "L_LINENUMBER", "linenumber",
-                                                        "L_ORDERKEY", "orderkey"))))
+                                                        "L_ORDERKEY", "orderkey"))),
+                                                anyTree(tableScan("orders", ImmutableMap.of(
+                                                        "O_SHIPPRIORITY", "shippriority",
+                                                        "O_ORDERKEY", "orderkey"))))
                                                 .withExactOutputs(ImmutableList.of("O_ORDERKEY"))))));
     }
 
@@ -123,14 +123,14 @@ public class TestLogicalPlanner
                 anyTree(
                         anyNot(FilterNode.class,
                                 join(INNER,
-                                        ImmutableList.of(equiJoinClause("O_SHIPPRIORITY", "L_LINENUMBER")),
+                                        ImmutableList.of(equiJoinClause("L_LINENUMBER", "O_SHIPPRIORITY")),
                                         Optional.of("O_ORDERKEY < L_ORDERKEY"),
-                                        any(tableScan("orders", ImmutableMap.of(
-                                                "O_SHIPPRIORITY", "shippriority",
-                                                "O_ORDERKEY", "orderkey"))),
-                                        anyTree(tableScan("lineitem", ImmutableMap.of(
+                                        any(tableScan("lineitem", ImmutableMap.of(
                                                 "L_LINENUMBER", "linenumber",
-                                                "L_ORDERKEY", "orderkey")))))));
+                                                "L_ORDERKEY", "orderkey"))),
+                                        anyTree(tableScan("orders", ImmutableMap.of(
+                                                "O_SHIPPRIORITY", "shippriority",
+                                                "O_ORDERKEY", "orderkey")))))));
     }
 
     @Test
@@ -151,11 +151,11 @@ public class TestLogicalPlanner
     {
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey",
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
+                        join(INNER, ImmutableList.of(equiJoinClause("LINEITEM_OK", "ORDERS_OK")),
                                 any(
-                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
+                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))),
                                 anyTree(
-                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
+                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))));
     }
 
     @Test
@@ -163,11 +163,10 @@ public class TestLogicalPlanner
     {
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey ORDER BY l.orderkey ASC, o.orderkey ASC",
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
+                        join(INNER, ImmutableList.of(equiJoinClause("LINEITEM_OK", "ORDERS_OK")),
                                 any(
-                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
-                                anyTree(
-                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
+                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))),
+                                anyTree(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))));
     }
 
     @Test
