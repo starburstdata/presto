@@ -177,7 +177,7 @@ public class ExpressionOptimizer
                     method = method.bindTo(session);
                 }
 
-                int index = 0;
+                int index = 0; // TODO should this start with 1 when ConnectorSession was bound above?
                 List<Object> constantArguments = new ArrayList<>();
                 for (RowExpression argument : arguments) {
                     Object value = ((ConstantExpression) argument).getValue();

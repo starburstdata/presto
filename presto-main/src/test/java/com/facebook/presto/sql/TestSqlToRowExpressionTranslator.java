@@ -26,6 +26,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
+import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.CoalesceExpression;
@@ -44,9 +45,11 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
+import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSqlToRowExpressionTranslator
 {
@@ -82,6 +85,30 @@ public class TestSqlToRowExpressionTranslator
             types.put(NodeRef.of(expression), BIGINT);
         }
         translateAndOptimize(expression, types.build());
+    }
+
+    @Test
+    public void testOptimizeDecimalLiteral()
+    {
+        // Short decimal
+        assertThat(translateAndOptimize(expression("DECIMAL '42'")))
+                .isInstanceOf(ConstantExpression.class);
+
+        assertThat(translateAndOptimize(expression("CAST(42 AS DECIMAL(7,2))")))
+                .isInstanceOf(ConstantExpression.class);
+
+        assertThat(translateAndOptimize(simplifyExpression(expression("CAST(42 AS DECIMAL(7,2))"))))
+                .isInstanceOf(ConstantExpression.class);
+
+        // Long decimal
+        assertThat(translateAndOptimize(expression("DECIMAL '123456789012345678901234567890'")))
+                .isInstanceOf(ConstantExpression.class);
+
+        assertThat(translateAndOptimize(expression("CAST(DECIMAL '123456789012345678901234567890' AS DECIMAL(35,2))")))
+                .isInstanceOf(ConstantExpression.class);
+
+        assertThat(translateAndOptimize(simplifyExpression(expression("CAST(DECIMAL '123456789012345678901234567890' AS DECIMAL(35,2))"))))
+                .isInstanceOf(ConstantExpression.class);
     }
 
     private RowExpression translateAndOptimize(Expression expression)
