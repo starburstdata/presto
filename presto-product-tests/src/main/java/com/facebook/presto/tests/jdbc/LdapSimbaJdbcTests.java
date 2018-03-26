@@ -64,7 +64,6 @@ public class LdapSimbaJdbcTests
         assertThat(executeLdapQuery(NATION_SELECT_ALL_QUERY, ldapUserName, ldapUserPassword)).matches(PRESTO_NATION_RESULT);
     }
 
-
     // TODO unquarantine when PRESTO-249 is fixed
     @Test(groups = {LDAP, SIMBA_JDBC, PROFILE_SPECIFIC_TESTS, QUARANTINE}, timeOut = TIMEOUT)
     public void shouldFailQueryForLdapUserInChildGroup()
