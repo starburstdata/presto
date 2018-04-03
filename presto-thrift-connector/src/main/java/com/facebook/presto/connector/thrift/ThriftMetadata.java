@@ -183,7 +183,15 @@ public class ThriftMetadata
     {
         requireNonNull(schemaTableName, "schemaTableName is null");
         return clientProvider.runOnAnyHost(client -> {
-            PrestoThriftNullableTableMetadata thriftTableMetadata = client.getTableMetadata(new PrestoThriftSchemaTableName(schemaTableName));
+            // treat invalid names as not found
+            PrestoThriftSchemaTableName name;
+            try {
+                name = new PrestoThriftSchemaTableName(schemaTableName);
+            }
+            catch (IllegalArgumentException e) {
+                return Optional.empty();
+            }
+            PrestoThriftNullableTableMetadata thriftTableMetadata = client.getTableMetadata(name);
             if (thriftTableMetadata.getTableMetadata() == null) {
                 return Optional.empty();
             }
