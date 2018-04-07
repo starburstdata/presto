@@ -41,8 +41,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.compose;
-import static com.google.common.base.Predicates.equalTo;
-import static com.google.common.collect.Iterables.filter;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
@@ -161,7 +160,9 @@ public class InformationSchemaMetadata
             return ImmutableList.copyOf(TABLES.keySet());
         }
 
-        return ImmutableList.copyOf(filter(TABLES.keySet(), compose(equalTo(schemaNameOrNull), SchemaTableName::getSchemaName)));
+        return TABLES.keySet().stream()
+                .filter(compose(schemaNameOrNull::equals, SchemaTableName::getSchemaName))
+                .collect(toImmutableList());
     }
 
     @Override
