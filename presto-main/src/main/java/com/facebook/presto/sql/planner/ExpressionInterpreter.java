@@ -906,10 +906,16 @@ public class ExpressionInterpreter
         protected Object visitLogicalBinaryExpression(LogicalBinaryExpression node, Object context)
         {
             Object left = process(node.getLeft(), context);
-            Object right = process(node.getRight(), context);
+            Object right;
 
             switch (node.getType()) {
                 case AND: {
+                    if (Boolean.FALSE.equals(left)) {
+                        return false;
+                    }
+
+                    right = process(node.getRight(), context);
+
                     if (Boolean.FALSE.equals(left) || Boolean.TRUE.equals(right)) {
                         return left;
                     }
@@ -920,6 +926,12 @@ public class ExpressionInterpreter
                     break;
                 }
                 case OR: {
+                    if (Boolean.TRUE.equals(left)) {
+                        return true;
+                    }
+
+                    right = process(node.getRight(), context);
+
                     if (Boolean.TRUE.equals(left) || Boolean.FALSE.equals(right)) {
                         return left;
                     }
@@ -929,6 +941,8 @@ public class ExpressionInterpreter
                     }
                     break;
                 }
+                default:
+                    throw new IllegalStateException("Unknown LogicalBinaryExpression#Type");
             }
 
             if (left == null && right == null) {
