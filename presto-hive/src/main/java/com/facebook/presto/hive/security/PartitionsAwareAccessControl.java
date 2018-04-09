@@ -22,6 +22,7 @@ import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
 
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.hive.HiveMetadata.getSourceTableNameForPartitionsTable;
@@ -64,10 +65,7 @@ public class PartitionsAwareAccessControl
     }
 
     @Override
-    public Set<String> filterSchemas(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> schemaNames)
-    {
-        return delegate.filterSchemas(transactionHandle, identity, schemaNames);
-    }
+    public Set<String> filterSchemas(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> schemaNames) {return delegate.filterSchemas(transactionHandle, identity, schemaNames);}
 
     @Override
     public void checkCanCreateTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
@@ -94,10 +92,7 @@ public class PartitionsAwareAccessControl
     }
 
     @Override
-    public Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<SchemaTableName> tableNames)
-    {
-        return delegate.filterTables(transactionHandle, identity, tableNames);
-    }
+    public Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<SchemaTableName> tableNames) {return delegate.filterTables(transactionHandle, identity, tableNames);}
 
     @Override
     public void checkCanAddColumn(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
@@ -190,5 +185,56 @@ public class PartitionsAwareAccessControl
     public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOptionFor)
     {
         delegate.checkCanRevokeTablePrivilege(transactionHandle, identity, privilege, tableName, revokee, grantOptionFor);
+    }
+
+    @Override
+    public void checkCanCreateRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String role, Optional<PrestoPrincipal> grantor)
+    {
+        delegate.checkCanCreateRole(transactionHandle, identity, role, grantor);
+    }
+
+    @Override
+    public void checkCanDropRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String role)
+    {
+        delegate.checkCanDropRole(transactionHandle, identity, role);
+    }
+
+    @Override
+    public void checkCanGrantRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName)
+    {
+        delegate.checkCanGrantRoles(transactionHandle, identity, roles, grantees, withAdminOption, grantor, catalogName);
+    }
+
+    @Override
+    public void checkCanRevokeRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName)
+    {
+        delegate.checkCanRevokeRoles(transactionHandle, identity, roles, grantees, adminOptionFor, grantor, catalogName);
+    }
+
+    @Override
+    public void checkCanSetRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String role, String catalogName)
+    {
+        delegate.checkCanSetRole(transactionHandle, identity, role, catalogName);
+    }
+
+    @Override
+    public void checkCanShowRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    {
+        delegate.checkCanShowRoles(transactionHandle, identity, catalogName);
+    }
+
+    @Override
+    public Set<String> filterRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName, Set<String> roles) {return delegate.filterRoles(transactionHandle, identity, catalogName, roles);}
+
+    @Override
+    public void checkCanShowCurrentRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    {
+        delegate.checkCanShowCurrentRoles(transactionHandle, identity, catalogName);
+    }
+
+    @Override
+    public void checkCanShowRoleGrants(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    {
+        delegate.checkCanShowRoleGrants(transactionHandle, identity, catalogName);
     }
 }
