@@ -77,6 +77,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.isEmptyBucketedPart
 import static com.facebook.presto.hive.HiveSessionProperties.isForceLocalScheduling;
 import static com.facebook.presto.hive.HiveSessionProperties.isMultiFileBucketingEnabled;
 import static com.facebook.presto.hive.HiveUtil.checkCondition;
+import static com.facebook.presto.hive.HiveUtil.getHeaderCount;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
@@ -294,6 +295,7 @@ public class BackgroundHiveSplitLoader
                 // get the configuration for the target path -- it may be a different hdfs instance
                 FileSystem targetFilesystem = hdfsEnvironment.getFileSystem(hdfsContext, targetPath);
                 JobConf targetJob = toJobConf(targetFilesystem.getConf());
+                handleFileHeader(schema, targetJob);
                 targetJob.setInputFormat(TextInputFormat.class);
                 targetInputFormat.configure(targetJob);
                 FileInputFormat.setInputPaths(targetJob, targetPath);
@@ -312,8 +314,9 @@ public class BackgroundHiveSplitLoader
 
         // To support custom input formats, we want to call getSplits()
         // on the input format to obtain file splits.
-        if (shouldUseFileSplitsFromInputFormat(inputFormat)) {
+        if (shouldUseFileSplitsFromInputFormat(inputFormat) || getHeaderCount(schema) > 0) {
             JobConf jobConf = toJobConf(configuration);
+            handleFileHeader(schema, jobConf);
             FileInputFormat.setInputPaths(jobConf, path);
             InputSplit[] splits = inputFormat.getSplits(jobConf, 0);
 
@@ -327,6 +330,15 @@ public class BackgroundHiveSplitLoader
 
         fileIterators.addLast(createInternalHiveSplitIterator(path, fs, splitFactory));
         return COMPLETED_FUTURE;
+    }
+
+    private void handleFileHeader(Properties schema, JobConf jobConf)
+    {
+        int headerCount = getHeaderCount(schema);
+        if (headerCount > 0) {
+            // do not split file when skip.header.line.count is used
+            jobConf.setLong("mapreduce.input.fileinputformat.split.minsize", Long.MAX_VALUE);
+        }
     }
 
     private ListenableFuture<?> addSplitsToSource(InputSplit[] targetSplits, InternalHiveSplitFactory splitFactory)
