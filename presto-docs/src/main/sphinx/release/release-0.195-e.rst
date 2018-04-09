@@ -52,3 +52,9 @@ Data type changes
 * Fix returned value from ``round(x, d)`` when ``x`` is a ``DECIMAL`` with
   scale ``0`` and ``d`` is a negative integer. Previously, no rounding was done
   in this case.
+
+===================
+Release 0.195-e.0.4
+===================
+
+* Fix bug with internal cluster communication over HTTPS using LDAP when only `PASSWORD` authentication type is set.
