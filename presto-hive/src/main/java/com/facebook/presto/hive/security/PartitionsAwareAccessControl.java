@@ -65,7 +65,10 @@ public class PartitionsAwareAccessControl
     }
 
     @Override
-    public Set<String> filterSchemas(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> schemaNames) {return delegate.filterSchemas(transactionHandle, identity, schemaNames);}
+    public Set<String> filterSchemas(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> schemaNames)
+    {
+        return delegate.filterSchemas(transactionHandle, identity, schemaNames);
+    }
 
     @Override
     public void checkCanCreateTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
@@ -92,7 +95,10 @@ public class PartitionsAwareAccessControl
     }
 
     @Override
-    public Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<SchemaTableName> tableNames) {return delegate.filterTables(transactionHandle, identity, tableNames);}
+    public Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<SchemaTableName> tableNames)
+    {
+        return delegate.filterTables(transactionHandle, identity, tableNames);
+    }
 
     @Override
     public void checkCanAddColumn(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
@@ -224,7 +230,10 @@ public class PartitionsAwareAccessControl
     }
 
     @Override
-    public Set<String> filterRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName, Set<String> roles) {return delegate.filterRoles(transactionHandle, identity, catalogName, roles);}
+    public Set<String> filterRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName, Set<String> roles)
+    {
+        return delegate.filterRoles(transactionHandle, identity, catalogName, roles);
+    }
 
     @Override
     public void checkCanShowCurrentRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
