@@ -87,6 +87,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -1634,9 +1635,9 @@ public class TestHiveIntegrationSmokeTest
                 "CREATE TABLE scale_writers_large WITH (format = 'RCBINARY') AS SELECT * FROM tpch.sf2.orders",
                 (long) computeActual("SELECT count(*) FROM tpch.sf2.orders").getOnlyValue());
 
-        assertEquals(
-                computeActual("SELECT count(DISTINCT \"$path\") FROM scale_writers_large"),
-                computeActual("SELECT count(*) FROM system.runtime.nodes"));
+        long fileCount = ((Number) computeActual("SELECT count(DISTINCT \"$path\") FROM scale_writers_large").getOnlyValue()).longValue();
+        long nodeCount = ((Number) computeActual("SELECT count(*) FROM system.runtime.nodes").getOnlyValue()).longValue();
+        assertThat(fileCount).isBetween(nodeCount - 1, nodeCount);
     }
 
     @Test
