@@ -39,7 +39,6 @@ import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
 import javax.inject.Inject;
@@ -56,6 +55,7 @@ import static com.facebook.presto.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_EXIS
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -186,19 +186,11 @@ public class AccumuloMetadata
     private List<SchemaTableName> listViews(String schemaNameOrNull)
     {
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
-        if (schemaNameOrNull == null) {
-            for (String schema : client.getSchemaNames()) {
-                for (String view : client.getViewNames(schema)) {
-                    builder.add(new SchemaTableName(schema, view));
-                }
+        for (String schemaName : getSchemas(schemaNameOrNull)) {
+            for (String view : client.getViewNames(schemaName)) {
+                builder.add(new SchemaTableName(schemaName, view));
             }
         }
-        else {
-            for (String view : client.getViewNames(schemaNameOrNull)) {
-                builder.add(new SchemaTableName(schemaNameOrNull, view));
-            }
-        }
-
         return builder.build();
     }
 
@@ -333,21 +325,20 @@ public class AccumuloMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
     {
-        Set<String> schemaNames;
-        if (schemaNameOrNull != null) {
-            schemaNames = ImmutableSet.of(schemaNameOrNull);
-        }
-        else {
-            schemaNames = client.getSchemaNames();
-        }
-
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
-        for (String schemaName : schemaNames) {
+        for (String schemaName : getSchemas(schemaNameOrNull)) {
             for (String tableName : client.getTableNames(schemaName)) {
                 builder.add(new SchemaTableName(schemaName, tableName));
             }
         }
         return builder.build();
+    }
+
+    private Set<String> getSchemas(String schemaNameOrNull)
+    {
+        return client.getSchemaNames().stream()
+                    .filter(schema -> schemaNameOrNull == null || schemaNameOrNull.equalsIgnoreCase(schema))
+                    .collect(toImmutableSet());
     }
 
     @Override
