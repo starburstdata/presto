@@ -3,7 +3,7 @@ services:
 
   postgres:
     hostname: postgres
-    image: 'postgres'
+    image: 'postgres:10.3'
     ports:
       - '15432:15432'
     environment:
@@ -14,7 +14,7 @@ services:
 
   mysql:
     hostname: mysql
-    image: 'mysql'
+    image: 'mysql:5.7'
     ports:
       - '13306:13306'
     command:
