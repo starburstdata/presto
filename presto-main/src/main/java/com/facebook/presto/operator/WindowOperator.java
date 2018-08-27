@@ -178,9 +178,6 @@ public class WindowOperator
     private final List<Type> outputTypes;
     private final int[] outputChannels;
     private final List<FramedWindowFunction> windowFunctions;
-    private final List<Integer> orderChannels;
-    private final List<SortOrder> ordering;
-
     private final int[] preGroupedChannels;
 
     private final ProducePagesIndexes producePagesIndexes;
@@ -244,15 +241,17 @@ public class WindowOperator
                 .limit(preSortedChannelPrefix)
                 .collect(toImmutableList());
 
+        List<Integer> orderChannels;
+        List<SortOrder> ordering;
         if (preSortedChannelPrefix > 0) {
             // This already implies that set(preGroupedChannels) == set(partitionChannels) (enforced with checkArgument)
-            this.orderChannels = ImmutableList.copyOf(Iterables.skip(sortChannels, preSortedChannelPrefix));
-            this.ordering = ImmutableList.copyOf(Iterables.skip(sortOrder, preSortedChannelPrefix));
+            orderChannels = ImmutableList.copyOf(Iterables.skip(sortChannels, preSortedChannelPrefix));
+            ordering = ImmutableList.copyOf(Iterables.skip(sortOrder, preSortedChannelPrefix));
         }
         else {
             // Otherwise, we need to sort by the unGroupedPartitionChannels and all original sort channels
-            this.orderChannels = ImmutableList.copyOf(concat(unGroupedPartitionChannels, sortChannels));
-            this.ordering = ImmutableList.copyOf(concat(nCopies(unGroupedPartitionChannels.size(), ASC_NULLS_LAST), sortOrder));
+            orderChannels = ImmutableList.copyOf(concat(unGroupedPartitionChannels, sortChannels));
+            ordering = ImmutableList.copyOf(concat(nCopies(unGroupedPartitionChannels.size(), ASC_NULLS_LAST), sortOrder));
         }
 
         AggregatedMemoryContext aggregatedNonRevocableMemoryContext;
@@ -282,6 +281,8 @@ public class WindowOperator
 
         this.producePagesIndexes = new ProducePagesIndexes(
                 inMemoryPagesIndexWithHashStrategies,
+                outputChannels,
+                ordering,
                 aggregatedRevocableMemoryContext,
                 aggregatedNonRevocableMemoryContext,
                 sourceTypes,
@@ -494,6 +495,8 @@ public class WindowOperator
             implements WorkProcessor.Process<PagesIndexWithSpiller>
     {
         private final PagesIndexWithHashStrategies inMemoryPagesIndexWithHashStrategies;
+        private final List<Integer> orderChannels;
+        private final List<SortOrder> ordering;
         private final LocalMemoryContext localRevocableMemoryContext;
         private final LocalMemoryContext localNonRevocableMemoryContext;
         private final LocalMemoryContext localMemoryContextCurrentlyInUse;
@@ -508,6 +511,8 @@ public class WindowOperator
 
         private ProducePagesIndexes(
                 PagesIndexWithHashStrategies inMemoryPagesIndexWithHashStrategies,
+                List<Integer> orderChannels,
+                List<SortOrder> ordering,
                 AggregatedMemoryContext aggregatedRevocableMemoryContext,
                 AggregatedMemoryContext aggregatedNonRevocableMemoryContext,
                 List<Type> sourceTypes,
@@ -515,6 +520,8 @@ public class WindowOperator
                 boolean spillEnabled)
         {
             this.inMemoryPagesIndexWithHashStrategies = inMemoryPagesIndexWithHashStrategies;
+            this.orderChannels = orderChannels;
+            this.ordering = ordering;
             this.localNonRevocableMemoryContext = aggregatedNonRevocableMemoryContext.newLocalMemoryContext(ProducePagesIndexes.class.getSimpleName());
             this.localRevocableMemoryContext = aggregatedRevocableMemoryContext.newLocalMemoryContext(ProducePagesIndexes.class.getSimpleName());
 
@@ -562,7 +569,7 @@ public class WindowOperator
 
             // If we have unused input or are finishing, then we have buffered a full group
             if (pendingInput != null || operatorFinishing) {
-                sortPagesIndexIfNecessary(inMemoryPagesIndexWithHashStrategies);
+                sortPagesIndexIfNecessary(inMemoryPagesIndexWithHashStrategies, orderChannels, ordering);
 
                 if (!spiller.isPresent()) {
                     windowInfo.addIndex(inMemoryPagesIndexWithHashStrategies.pagesIndex);
@@ -655,7 +662,7 @@ public class WindowOperator
             }
 
             return mergeSpilledPagesAndCurrentPagesIndex(pagesIndexWithSpiller.pagesIndexWithHashStrategies, spilledPages)
-                    .transform(new ProducePagesIndexesFromSortedPages(mergedPagesIndexWithHashStrategies, operatorContext.localUserMemoryContext()));
+                    .transform(new ProducePagesIndexesFromSortedPages(mergedPagesIndexWithHashStrategies, ImmutableList.of(), ImmutableList.of(), operatorContext.localUserMemoryContext()));
         }
 
         public WorkProcessor<Page> mergeSpilledPagesAndCurrentPagesIndex(PagesIndexWithHashStrategies pagesIndexWithHashStrategies, List<WorkProcessor<Page>> spilledPages)
@@ -677,15 +684,21 @@ public class WindowOperator
             implements WorkProcessor.Transformation<Page, PagesIndexWithHashStrategies>
     {
         private PagesIndexWithHashStrategies mergedPagesIndexWithHashStrategies;
+        private List<Integer> orderChannels;
+        private List<SortOrder> ordering;
         private LocalMemoryContext localMemoryContext;
         private boolean resetPagesIndex;
         private Page pendingInput;
 
         private ProducePagesIndexesFromSortedPages(
                 PagesIndexWithHashStrategies mergedPagesIndexWithHashStrategies,
+                List<Integer> orderChannels,
+                List<SortOrder> ordering,
                 LocalMemoryContext localMemoryContext)
         {
             this.mergedPagesIndexWithHashStrategies = mergedPagesIndexWithHashStrategies;
+            this.orderChannels = orderChannels;
+            this.ordering = ordering;
             this.localMemoryContext = localMemoryContext;
         }
 
@@ -714,7 +727,7 @@ public class WindowOperator
 
             // If we have unused input or are finishing, then we have buffered a full group
             if (pendingInput != null || finishing) {
-                sortPagesIndexIfNecessary(mergedPagesIndexWithHashStrategies);
+                sortPagesIndexIfNecessary(mergedPagesIndexWithHashStrategies, orderChannels, ordering);
                 windowInfo.addIndex(mergedPagesIndexWithHashStrategies.pagesIndex);
                 resetPagesIndex = true;
                 return ofResult(WindowOperator.this.mergedPagesIndexWithHashStrategies, false);
@@ -725,7 +738,7 @@ public class WindowOperator
         }
     }
 
-    private void sortPagesIndexIfNecessary(PagesIndexWithHashStrategies pagesIndexWithHashStrategies)
+    private void sortPagesIndexIfNecessary(PagesIndexWithHashStrategies pagesIndexWithHashStrategies, List<Integer> orderChannels, List<SortOrder> ordering)
     {
         if (pagesIndexWithHashStrategies.pagesIndex.getPositionCount() > 1 && !orderChannels.isEmpty()) {
             int startPosition = 0;
