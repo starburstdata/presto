@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.WorkProcessor.ProcessorState;
+import com.facebook.presto.operator.WorkProcessor.Transformation;
 import com.facebook.presto.operator.window.FramedWindowFunction;
 import com.facebook.presto.operator.window.WindowPartition;
 import com.facebook.presto.spi.Page;
@@ -30,7 +31,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
+import com.google.common.collect.PeekingIterator;
 import com.google.common.primitives.Ints;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
@@ -179,13 +183,13 @@ public class WindowOperator
     private final List<Type> outputTypes;
     private final int[] outputChannels;
     private final List<FramedWindowFunction> windowFunctions;
-    private final SpillableProducePagesIndexes spillableProducePagesIndexes;
+    private final Optional<SpillableProducePagesIndexes> spillableProducePagesIndexes;
     private final WorkProcessor<Page> outputPages;
     private final WindowInfo.DriverWindowInfoBuilder windowInfo;
     private final AtomicReference<Optional<WindowInfo.DriverWindowInfo>> driverWindowInfo = new AtomicReference<>(Optional.empty());
-    private final LocalMemoryContext pendingInputMemoryContext;
+    private final LocalMemoryContext operatorPendingInputMemoryContext;
 
-    private Page pendingInput;
+    private Page operatorPendingInput;
     private boolean operatorFinishing;
 
     public WindowOperator(
@@ -263,32 +267,43 @@ public class WindowOperator
                 unGroupedPartitionChannels,
                 preSortedChannels,
                 sortChannels);
-        PagesIndexWithHashStrategies mergedPagesIndexWithHashStrategies = new PagesIndexWithHashStrategies(
-                pagesIndexFactory,
-                sourceTypes,
-                expectedPositions,
-                // merged pages are grouped on all partition channels
-                partitionChannels,
-                ImmutableList.of(),
-                // merged pages are pre sorted on all sort channels
-                sortChannels,
-                sortChannels);
 
-        this.spillableProducePagesIndexes = new SpillableProducePagesIndexes(
-                inMemoryPagesIndexWithHashStrategies,
-                outputChannels,
-                ordering,
-                aggregatedRevocableMemoryContext,
-                aggregatedNonRevocableMemoryContext,
-                sourceTypes,
-                spillerFactory,
-                spillEnabled);
-        this.outputPages = WorkProcessor.create(this.spillableProducePagesIndexes)
-                .flatMap(new MergeSpilledFilesAndInMemoryIndex(mergedPagesIndexWithHashStrategies, sourceTypes, orderChannels, ordering))
-                .flatMap(new ProduceWindowPartitions())
-                .transform(new ProduceWindowResults());
+        if (spillEnabled) {
+            PagesIndexWithHashStrategies mergedPagesIndexWithHashStrategies = new PagesIndexWithHashStrategies(
+                    pagesIndexFactory,
+                    sourceTypes,
+                    expectedPositions,
+                    // merged pages are grouped on all partition channels
+                    partitionChannels,
+                    ImmutableList.of(),
+                    // merged pages are pre sorted on all sort channels
+                    sortChannels,
+                    sortChannels);
 
-        pendingInputMemoryContext = operatorContext.aggregateUserMemoryContext().newLocalMemoryContext("pendingInput");
+            this.spillableProducePagesIndexes = Optional.of(new SpillableProducePagesIndexes(
+                    inMemoryPagesIndexWithHashStrategies,
+                    sourceTypes,
+                    outputChannels,
+                    ordering,
+                    aggregatedRevocableMemoryContext,
+                    aggregatedNonRevocableMemoryContext,
+                    spillerFactory));
+
+            this.outputPages = WorkProcessor.create(new PagesSource())
+                    .transform(spillableProducePagesIndexes.get())
+                    .flatMap(new MergeSpilledFilesAndInMemoryIndex(mergedPagesIndexWithHashStrategies, sourceTypes, orderChannels, ordering))
+                    .flatMap(new ProduceWindowPartitions())
+                    .transform(new ProduceWindowResults());
+        }
+        else {
+            this.spillableProducePagesIndexes = Optional.empty();
+            this.outputPages = WorkProcessor.create(new PagesSource())
+                    .transform(new ProducePagesIndexes(inMemoryPagesIndexWithHashStrategies, orderChannels, ordering, aggregatedNonRevocableMemoryContext))
+                    .flatMap(new ProduceWindowPartitions())
+                    .transform(new ProduceWindowResults());
+        }
+
+        operatorPendingInputMemoryContext = operatorContext.aggregateUserMemoryContext().newLocalMemoryContext("pendingInput");
         windowInfo = new WindowInfo.DriverWindowInfoBuilder();
         operatorContext.setInfoSupplier(this::getWindowInfo);
     }
@@ -319,20 +334,20 @@ public class WindowOperator
     @Override
     public boolean needsInput()
     {
-        return pendingInput == null && !operatorFinishing;
+        return operatorPendingInput == null && !operatorFinishing;
     }
 
     @Override
     public void addInput(Page page)
     {
         requireNonNull(page, "page is null");
-        checkState(pendingInput == null, "Operator already has pending input");
+        checkState(operatorPendingInput == null, "Operator already has pending input");
 
         if (page.getPositionCount() == 0) {
             return;
         }
 
-        pendingInput = page;
+        operatorPendingInput = page;
     }
 
     @Override
@@ -352,13 +367,13 @@ public class WindowOperator
     @Override
     public ListenableFuture<?> startMemoryRevoke()
     {
-        return spillableProducePagesIndexes.spillToDisk();
+        return spillableProducePagesIndexes.get().spillToDisk();
     }
 
     @Override
     public void finishMemoryRevoke()
     {
-        spillableProducePagesIndexes.finishRevokeMemory();
+        spillableProducePagesIndexes.get().finishRevokeMemory();
     }
 
     @Override
@@ -395,7 +410,7 @@ public class WindowOperator
     }
 
     private class ProduceWindowResults
-            implements WorkProcessor.Transformation<WindowPartition, Page>
+            implements Transformation<WindowPartition, Page>
     {
         private final PageBuilder pageBuilder;
 
@@ -488,71 +503,62 @@ public class WindowOperator
     }
 
     private class SpillableProducePagesIndexes
-            implements WorkProcessor.Process<PagesIndexWithSpiller>
+            implements Transformation<Page, PagesIndexWithSpiller>
     {
         private final PagesIndexWithHashStrategies inMemoryPagesIndexWithHashStrategies;
+        private final List<Type> sourceTypes;
         private final List<Integer> orderChannels;
         private final List<SortOrder> ordering;
         private final LocalMemoryContext localRevocableMemoryContext;
         private final LocalMemoryContext localNonRevocableMemoryContext;
-        private final LocalMemoryContext localMemoryContextCurrentlyInUse;
         private final SpillerFactory spillerFactory;
-        private final boolean spillEnabled;
 
-        private Optional<Spiller> spiller;
         private boolean resetPagesIndex;
-        private ListenableFuture<?> spillInProgress = immediateFuture(null);
-        private List<Type> sourceTypes;
+        private Page pendingInput;
+
         private Optional<Page> currentSpillGroupRowPage;
+        private Optional<Spiller> spiller;
+        private ListenableFuture<?> spillInProgress = immediateFuture(null);
 
         private SpillableProducePagesIndexes(
                 PagesIndexWithHashStrategies inMemoryPagesIndexWithHashStrategies,
+                List<Type> sourceTypes,
                 List<Integer> orderChannels,
                 List<SortOrder> ordering,
                 AggregatedMemoryContext aggregatedRevocableMemoryContext,
                 AggregatedMemoryContext aggregatedNonRevocableMemoryContext,
-                List<Type> sourceTypes,
-                SpillerFactory spillerFactory,
-                boolean spillEnabled)
+                SpillerFactory spillerFactory)
         {
             this.inMemoryPagesIndexWithHashStrategies = inMemoryPagesIndexWithHashStrategies;
+            this.sourceTypes = sourceTypes;
             this.orderChannels = orderChannels;
             this.ordering = ordering;
             this.localNonRevocableMemoryContext = aggregatedNonRevocableMemoryContext.newLocalMemoryContext(SpillableProducePagesIndexes.class.getSimpleName());
             this.localRevocableMemoryContext = aggregatedRevocableMemoryContext.newLocalMemoryContext(SpillableProducePagesIndexes.class.getSimpleName());
-
-            this.spillEnabled = spillEnabled;
-
-            if (spillEnabled) {
-                localMemoryContextCurrentlyInUse = localRevocableMemoryContext;
-            }
-            else {
-                localMemoryContextCurrentlyInUse = localNonRevocableMemoryContext;
-            }
-
-            this.sourceTypes = sourceTypes;
             this.spillerFactory = spillerFactory;
-            this.spiller = Optional.empty();
+
             this.currentSpillGroupRowPage = Optional.empty();
+            this.spiller = Optional.empty();
         }
 
         @Override
-        public ProcessorState<PagesIndexWithSpiller> process()
+        public WorkProcessor.ProcessorState<PagesIndexWithSpiller> process(Optional<Page> inputPageOptional)
         {
             if (resetPagesIndex) {
                 inMemoryPagesIndexWithHashStrategies.pagesIndex.clear();
-                resetPagesIndex = false;
-                localMemoryContextCurrentlyInUse.setBytes(inMemoryPagesIndexWithHashStrategies.pagesIndex.getEstimatedSize().toBytes());
+                currentSpillGroupRowPage = Optional.empty();
 
                 if (spiller.isPresent()) {
                     spiller.get().close();
                     spiller = Optional.empty();
                 }
 
-                currentSpillGroupRowPage = Optional.empty();
+                updateMemoryUsage(false);
+                resetPagesIndex = false;
             }
 
-            if (operatorFinishing && pendingInput == null && inMemoryPagesIndexWithHashStrategies.pagesIndex.getPositionCount() == 0 && !spiller.isPresent()) {
+            boolean finishing = !inputPageOptional.isPresent();
+            if (finishing && pendingInput == null && inMemoryPagesIndexWithHashStrategies.pagesIndex.getPositionCount() == 0 && !spiller.isPresent()) {
                 localRevocableMemoryContext.close();
                 localNonRevocableMemoryContext.close();
                 return finished();
@@ -560,21 +566,14 @@ public class WindowOperator
 
             if (pendingInput != null) {
                 pendingInput = updatePagesIndex(inMemoryPagesIndexWithHashStrategies, pendingInput, currentSpillGroupRowPage);
-                localMemoryContextCurrentlyInUse.setBytes(inMemoryPagesIndexWithHashStrategies.pagesIndex.getEstimatedSize().toBytes());
+                updateMemoryUsage(true);
             }
 
             // If we have unused input or are finishing, then we have buffered a full group
-            if (pendingInput != null || operatorFinishing) {
+            if (pendingInput != null || finishing) {
                 sortPagesIndexIfNecessary(inMemoryPagesIndexWithHashStrategies, orderChannels, ordering);
                 resetPagesIndex = true;
-
-                // Switch memory accounting for inMemoryPagesIndex to use non revocable memory since inMemoryPagesIndex's memory
-                // should not be revoked when it is being used for constructing partitions
-                if (spillEnabled && localRevocableMemoryContext.getBytes() > 0) {
-                    localNonRevocableMemoryContext.setBytes(localRevocableMemoryContext.getBytes());
-                    localRevocableMemoryContext.setBytes(0);
-                }
-
+                updateMemoryUsage(false);
                 return ofResult(new PagesIndexWithSpiller(inMemoryPagesIndexWithHashStrategies, spiller));
             }
 
@@ -594,15 +593,15 @@ public class WindowOperator
             }
 
             if (inMemoryPagesIndexWithHashStrategies.pagesIndex.getPositionCount() == 0) {
-                return spillInProgress;
+                return Futures.immediateFuture(null);
             }
 
-            inMemoryPagesIndexWithHashStrategies.pagesIndex.sort(orderChannels, ordering);
-            spillInProgress = spiller.get().spill(inMemoryPagesIndexWithHashStrategies.pagesIndex.getSortedPages());
+            sortPagesIndexIfNecessary(inMemoryPagesIndexWithHashStrategies, orderChannels, ordering);
+            PeekingIterator<Page> sortedPages = Iterators.peekingIterator(inMemoryPagesIndexWithHashStrategies.pagesIndex.getSortedPages());
+            Page topPage = sortedPages.peek();
+            spillInProgress = spiller.get().spill(sortedPages);
 
-            Page topPage = inMemoryPagesIndexWithHashStrategies.pagesIndex.getSortedPages().next();
-            currentSpillGroupRowPage = Optional.of(topPage.getRegion(topPage.getPositionCount() - 1, 1));
-
+            currentSpillGroupRowPage = Optional.of(topPage.getRegion(0, 1));
             return spillInProgress;
         }
 
@@ -621,7 +620,26 @@ public class WindowOperator
         public void finishRevokeMemory()
         {
             inMemoryPagesIndexWithHashStrategies.pagesIndex.clear();
-            localRevocableMemoryContext.setBytes(inMemoryPagesIndexWithHashStrategies.pagesIndex.getEstimatedSize().toBytes());
+            updateMemoryUsage(false);
+        }
+
+        void updateMemoryUsage(boolean revokable)
+        {
+            long pagesIndexBytes = inMemoryPagesIndexWithHashStrategies.pagesIndex.getEstimatedSize().toBytes();
+            long pendingInputBytes = 0L;
+
+            if (pendingInput != null) {
+                pendingInputBytes = pendingInput.getRetainedSizeInBytes();
+            }
+
+            if (revokable) {
+                localRevocableMemoryContext.setBytes(pagesIndexBytes);
+                localNonRevocableMemoryContext.setBytes(pendingInputBytes);
+            }
+            else {
+                localRevocableMemoryContext.setBytes(0L);
+                localNonRevocableMemoryContext.setBytes(pendingInputBytes + pagesIndexBytes);
+            }
         }
     }
 
@@ -672,7 +690,7 @@ public class WindowOperator
     }
 
     private class ProducePagesIndexes
-            implements WorkProcessor.Transformation<Page, PagesIndexWithHashStrategies>
+            implements Transformation<Page, PagesIndexWithHashStrategies>
     {
         private PagesIndexWithHashStrategies pagesIndexWithHashStrategies;
         private List<Integer> orderChannels;
@@ -696,13 +714,13 @@ public class WindowOperator
         @Override
         public WorkProcessor.ProcessorState<PagesIndexWithHashStrategies> process(Optional<Page> inputPageOptional)
         {
-            boolean finishing = !inputPageOptional.isPresent();
             if (resetPagesIndex) {
                 pagesIndexWithHashStrategies.pagesIndex.clear();
-                resetPagesIndex = false;
                 updateMemoryUsage();
+                resetPagesIndex = false;
             }
 
+            boolean finishing = !inputPageOptional.isPresent();
             if (finishing && pendingInput == null && pagesIndexWithHashStrategies.pagesIndex.getPositionCount() == 0) {
                 localMemoryContext.close();
                 return finished();
@@ -744,15 +762,15 @@ public class WindowOperator
         @Override
         public ProcessorState<Page> process()
         {
-            if (operatorFinishing && pendingInput == null) {
-                pendingInputMemoryContext.close();
+            if (operatorFinishing && operatorPendingInput == null) {
+                operatorPendingInputMemoryContext.close();
                 return finished();
             }
 
-            if (pendingInput != null) {
-                Page result = pendingInput;
-                pendingInput = null;
-                pendingInputMemoryContext.setBytes(0L);
+            if (operatorPendingInput != null) {
+                Page result = operatorPendingInput;
+                operatorPendingInput = null;
+                operatorPendingInputMemoryContext.setBytes(0L);
                 return ofResult(result);
             }
 
