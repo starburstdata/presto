@@ -185,9 +185,6 @@ public class WindowOperator
     private final WindowInfo.DriverWindowInfoBuilder windowInfo;
     private final AtomicReference<Optional<WindowInfo.DriverWindowInfo>> driverWindowInfo = new AtomicReference<>(Optional.empty());
 
-    private final PagesIndexWithHashStrategies inMemoryPagesIndexWithHashStrategies;
-    private final PagesIndexWithHashStrategies mergedPagesIndexWithHashStrategies;
-
     private Page pendingInput;
     private boolean operatorFinishing;
 
@@ -260,7 +257,7 @@ public class WindowOperator
         aggregatedNonRevocableMemoryContext = operatorContext.aggregateUserMemoryContext();
         aggregatedRevocableMemoryContext = operatorContext.aggregateRevocableMemoryContext();
 
-        this.inMemoryPagesIndexWithHashStrategies = new PagesIndexWithHashStrategies(
+        PagesIndexWithHashStrategies inMemoryPagesIndexWithHashStrategies = new PagesIndexWithHashStrategies(
                 pagesIndexFactory,
                 sourceTypes,
                 expectedPositions,
@@ -268,7 +265,7 @@ public class WindowOperator
                 unGroupedPartitionChannels,
                 preSortedChannels,
                 sortChannels);
-        this.mergedPagesIndexWithHashStrategies = new PagesIndexWithHashStrategies(
+        PagesIndexWithHashStrategies mergedPagesIndexWithHashStrategies = new PagesIndexWithHashStrategies(
                 pagesIndexFactory,
                 sourceTypes,
                 expectedPositions,
@@ -730,7 +727,7 @@ public class WindowOperator
                 sortPagesIndexIfNecessary(mergedPagesIndexWithHashStrategies, orderChannels, ordering);
                 windowInfo.addIndex(mergedPagesIndexWithHashStrategies.pagesIndex);
                 resetPagesIndex = true;
-                return ofResult(WindowOperator.this.mergedPagesIndexWithHashStrategies, false);
+                return ofResult(mergedPagesIndexWithHashStrategies, false);
             }
 
             // pendingInput == null && !operatorFinishing
