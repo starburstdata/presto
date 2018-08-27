@@ -178,7 +178,6 @@ public class WindowOperator
     private final List<Type> outputTypes;
     private final int[] outputChannels;
     private final List<FramedWindowFunction> windowFunctions;
-    private final int[] preGroupedChannels;
 
     private final ProducePagesIndexes producePagesIndexes;
     private final WorkProcessor<Page> outputPages;
@@ -228,8 +227,6 @@ public class WindowOperator
                 windowFunctionDefinitions.stream()
                         .map(WindowFunctionDefinition::getType))
                 .collect(toImmutableList());
-
-        this.preGroupedChannels = Ints.toArray(preGroupedChannels);
 
         List<Integer> unGroupedPartitionChannels = partitionChannels.stream()
                 .filter(channel -> !preGroupedChannels.contains(channel))
@@ -375,6 +372,7 @@ public class WindowOperator
         final PagesHashStrategy unGroupedPartitionHashStrategy;
         final PagesHashStrategy preSortedPartitionHashStrategy;
         final PagesHashStrategy peerGroupHashStrategy;
+        final List<Integer> preGroupedPartitionChannels;
 
         PagesIndexWithHashStrategies(
                 PagesIndex.Factory pagesIndexFactory,
@@ -390,6 +388,7 @@ public class WindowOperator
             this.unGroupedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(unGroupedPartitionChannels, OptionalInt.empty());
             this.preSortedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(preSortedChannels, OptionalInt.empty());
             this.peerGroupHashStrategy = pagesIndex.createPagesHashStrategy(sortChannels, OptionalInt.empty());
+            this.preGroupedPartitionChannels = ImmutableList.copyOf(preGroupedPartitionChannels);
         }
     }
 
@@ -440,6 +439,7 @@ public class WindowOperator
         public WorkProcessor<WindowPartition> apply(PagesIndexWithHashStrategies pagesIndexWithHashStrategies)
         {
             PagesIndex pagesIndex = pagesIndexWithHashStrategies.pagesIndex;
+            windowInfo.addIndex(pagesIndex);
             return WorkProcessor.create(new WorkProcessor.Process<WindowPartition>()
             {
                 int partitionStart;
@@ -567,11 +567,6 @@ public class WindowOperator
             // If we have unused input or are finishing, then we have buffered a full group
             if (pendingInput != null || operatorFinishing) {
                 sortPagesIndexIfNecessary(inMemoryPagesIndexWithHashStrategies, orderChannels, ordering);
-
-                if (!spiller.isPresent()) {
-                    windowInfo.addIndex(inMemoryPagesIndexWithHashStrategies.pagesIndex);
-                }
-
                 resetPagesIndex = true;
 
                 // Switch memory accounting for inMemoryPagesIndex to use non revocable memory since inMemoryPagesIndex's memory
@@ -752,12 +747,12 @@ public class WindowOperator
         checkArgument(page.getPositionCount() > 0);
 
         // TODO: Fix pagesHashStrategy to allow specifying channels for comparison, it currently requires us to rearrange the right side blocks in consecutive channel order
-        Page preGroupedPage = rearrangePage(page, preGroupedChannels);
+        Page preGroupedPage = rearrangePage(page, pagesIndexWithHashStrategies.preGroupedPartitionChannels);
 
         PagesIndex pagesIndex = pagesIndexWithHashStrategies.pagesIndex;
         PagesHashStrategy preGroupedPartitionHashStrategy = pagesIndexWithHashStrategies.preGroupedPartitionHashStrategy;
         if (currentSpillGroupRowPage.isPresent()) {
-            if (!preGroupedPartitionHashStrategy.rowEqualsRow(0, extractColumns(currentSpillGroupRowPage.get(), preGroupedChannels), 0, preGroupedPage)) {
+            if (!preGroupedPartitionHashStrategy.rowEqualsRow(0, rearrangePage(currentSpillGroupRowPage.get(), pagesIndexWithHashStrategies.preGroupedPartitionChannels), 0, preGroupedPage)) {
                 return page;
             }
         }
@@ -784,11 +779,11 @@ public class WindowOperator
         }
     }
 
-    private Page rearrangePage(Page page, int[] channels)
+    private Page rearrangePage(Page page, List<Integer> preGroupedPartitionChannels)
     {
-        Block[] newBlocks = new Block[channels.length];
-        for (int i = 0; i < channels.length; i++) {
-            newBlocks[i] = page.getBlock(channels[i]);
+        Block[] newBlocks = new Block[preGroupedPartitionChannels.size()];
+        for (int i = 0; i < preGroupedPartitionChannels.size(); i++) {
+            newBlocks[i] = page.getBlock(preGroupedPartitionChannels.get(i));
         }
         return new Page(page.getPositionCount(), newBlocks);
     }
