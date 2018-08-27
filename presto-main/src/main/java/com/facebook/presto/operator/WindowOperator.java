@@ -653,7 +653,7 @@ public class WindowOperator
             }
 
             return mergeSpilledPagesAndCurrentPagesIndex(pagesIndexWithSpiller.pagesIndexWithHashStrategies, spilledPages)
-                    .transform(new ProducePagesIndexes(mergedPagesIndexWithHashStrategies, ImmutableList.of(), ImmutableList.of(), operatorContext.localUserMemoryContext()));
+                    .transform(new ProducePagesIndexes(mergedPagesIndexWithHashStrategies, ImmutableList.of(), ImmutableList.of(), operatorContext.aggregateUserMemoryContext()));
         }
 
         public WorkProcessor<Page> mergeSpilledPagesAndCurrentPagesIndex(PagesIndexWithHashStrategies pagesIndexWithHashStrategies, List<WorkProcessor<Page>> spilledPages)
@@ -674,7 +674,7 @@ public class WindowOperator
     private class ProducePagesIndexes
             implements WorkProcessor.Transformation<Page, PagesIndexWithHashStrategies>
     {
-        private PagesIndexWithHashStrategies mergedPagesIndexWithHashStrategies;
+        private PagesIndexWithHashStrategies pagesIndexWithHashStrategies;
         private List<Integer> orderChannels;
         private List<SortOrder> ordering;
         private LocalMemoryContext localMemoryContext;
@@ -682,15 +682,15 @@ public class WindowOperator
         private Page pendingInput;
 
         private ProducePagesIndexes(
-                PagesIndexWithHashStrategies mergedPagesIndexWithHashStrategies,
+                PagesIndexWithHashStrategies pagesIndexWithHashStrategies,
                 List<Integer> orderChannels,
                 List<SortOrder> ordering,
-                LocalMemoryContext localMemoryContext)
+                AggregatedMemoryContext aggregatedMemoryContext)
         {
-            this.mergedPagesIndexWithHashStrategies = mergedPagesIndexWithHashStrategies;
+            this.pagesIndexWithHashStrategies = pagesIndexWithHashStrategies;
             this.orderChannels = orderChannels;
             this.ordering = ordering;
-            this.localMemoryContext = localMemoryContext;
+            this.localMemoryContext = aggregatedMemoryContext.newLocalMemoryContext(ProducePagesIndexes.class.getSimpleName());
         }
 
         @Override
@@ -698,12 +698,13 @@ public class WindowOperator
         {
             boolean finishing = !inputPageOptional.isPresent();
             if (resetPagesIndex) {
-                mergedPagesIndexWithHashStrategies.pagesIndex.clear();
+                pagesIndexWithHashStrategies.pagesIndex.clear();
                 resetPagesIndex = false;
-                localMemoryContext.setBytes(mergedPagesIndexWithHashStrategies.pagesIndex.getEstimatedSize().toBytes());
+                updateMemoryUsage();
             }
 
-            if (finishing && pendingInput == null && mergedPagesIndexWithHashStrategies.pagesIndex.getPositionCount() == 0) {
+            if (finishing && pendingInput == null && pagesIndexWithHashStrategies.pagesIndex.getPositionCount() == 0) {
+                localMemoryContext.close();
                 return finished();
             }
 
@@ -712,20 +713,28 @@ public class WindowOperator
             }
 
             if (pendingInput != null) {
-                // No current spilled rows during merging on disk pages and in memory indexes
-                pendingInput = updatePagesIndex(mergedPagesIndexWithHashStrategies, pendingInput, Optional.empty());
+                pendingInput = updatePagesIndex(pagesIndexWithHashStrategies, pendingInput, Optional.empty());
+                updateMemoryUsage();
             }
 
             // If we have unused input or are finishing, then we have buffered a full group
             if (pendingInput != null || finishing) {
-                sortPagesIndexIfNecessary(mergedPagesIndexWithHashStrategies, orderChannels, ordering);
-                windowInfo.addIndex(mergedPagesIndexWithHashStrategies.pagesIndex);
+                sortPagesIndexIfNecessary(pagesIndexWithHashStrategies, orderChannels, ordering);
                 resetPagesIndex = true;
-                return ofResult(mergedPagesIndexWithHashStrategies, false);
+                return ofResult(pagesIndexWithHashStrategies, false);
             }
 
             // pendingInput == null && !operatorFinishing
             return needsMoreData();
+        }
+
+        void updateMemoryUsage()
+        {
+            long bytes = pagesIndexWithHashStrategies.pagesIndex.getEstimatedSize().toBytes();
+            if (pendingInput != null) {
+                bytes += pendingInput.getRetainedSizeInBytes();
+            }
+            localMemoryContext.setBytes(bytes);
         }
     }
 
