@@ -463,7 +463,7 @@ public class WindowOperator
         }
     }
 
-    private class PagesIndexWithSpiller
+    private static class PagesIndexWithSpiller
     {
         final PagesIndexWithHashStrategies pagesIndexWithHashStrategies;
         final Optional<Spiller> spiller;
