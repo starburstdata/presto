@@ -478,11 +478,8 @@ public class WindowOperator
 
         List<WorkProcessor<Page>> getSpilledPages()
         {
-            if (!spiller.isPresent()) {
-                return ImmutableList.of();
-            }
-
-            return spiller.get().getSpills().stream()
+            return spiller
+                    .map(Spiller::getSpills).orElse(ImmutableList.of()).stream()
                     .map(WorkProcessor::fromIterator)
                     .collect(Collectors.toList());
         }
