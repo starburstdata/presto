@@ -188,18 +188,6 @@ public class WindowOperator
     private final WindowInfo.DriverWindowInfoBuilder windowInfo;
     private final AtomicReference<Optional<WindowInfo.DriverWindowInfo>> driverWindowInfo = new AtomicReference<>(Optional.empty());
 
-    private final PagesIndex inMemoryPagesIndex;
-    private final PagesHashStrategy inMemoryPreGroupedPartitionHashStrategy;
-    private final PagesHashStrategy inMemoryUnGroupedPartitionHashStrategy;
-    private final PagesHashStrategy inMemoryPreSortedPartitionHashStrategy;
-    private final PagesHashStrategy inMemoryPeerGroupHashStrategy;
-
-    private final PagesIndex mergedPagesIndex;
-    private final PagesHashStrategy mergedPreGroupedPartitionHashStrategy;
-    private final PagesHashStrategy mergedUnGroupedPartitionHashStrategy;
-    private final PagesHashStrategy mergedPreSortedPartitionHashStrategy;
-    private final PagesHashStrategy mergedPeerGroupHashStrategy;
-
     private final PagesIndexWithHashStrategies inMemoryPagesIndexWithHashStrategies;
     private final PagesIndexWithHashStrategies mergedPagesIndexWithHashStrategies;
 
@@ -273,35 +261,34 @@ public class WindowOperator
         aggregatedNonRevocableMemoryContext = operatorContext.aggregateUserMemoryContext();
         aggregatedRevocableMemoryContext = operatorContext.aggregateRevocableMemoryContext();
 
-        this.inMemoryPagesIndex = pagesIndexFactory.newPagesIndex(sourceTypes, expectedPositions);
-        this.inMemoryPreGroupedPartitionHashStrategy = inMemoryPagesIndex.createPagesHashStrategy(preGroupedChannels, OptionalInt.empty());
-
-        this.inMemoryUnGroupedPartitionHashStrategy = inMemoryPagesIndex.createPagesHashStrategy(unGroupedPartitionChannels, OptionalInt.empty());
-
-        this.inMemoryPreSortedPartitionHashStrategy = inMemoryPagesIndex.createPagesHashStrategy(preSortedChannels, OptionalInt.empty());
-
-        this.inMemoryPeerGroupHashStrategy = inMemoryPagesIndex.createPagesHashStrategy(sortChannels, OptionalInt.empty());
-
-        this.mergedPagesIndex = pagesIndexFactory.newPagesIndex(sourceTypes, expectedPositions);
-        this.mergedPreGroupedPartitionHashStrategy = mergedPagesIndex.createPagesHashStrategy(preGroupedChannels, OptionalInt.empty());
-
-        this.mergedUnGroupedPartitionHashStrategy = mergedPagesIndex.createPagesHashStrategy(unGroupedPartitionChannels, OptionalInt.empty());
-
-        this.mergedPreSortedPartitionHashStrategy = mergedPagesIndex.createPagesHashStrategy(preSortedChannels, OptionalInt.empty());
-
-        this.mergedPeerGroupHashStrategy = mergedPagesIndex.createPagesHashStrategy(sortChannels, OptionalInt.empty());
-
-        this.inMemoryPagesIndexWithHashStrategies = new PagesIndexWithHashStrategies(inMemoryPagesIndex, inMemoryPreGroupedPartitionHashStrategy, inMemoryUnGroupedPartitionHashStrategy, inMemoryPreSortedPartitionHashStrategy, inMemoryPeerGroupHashStrategy);
-        this.mergedPagesIndexWithHashStrategies = new PagesIndexWithHashStrategies(mergedPagesIndex, mergedPreGroupedPartitionHashStrategy, mergedUnGroupedPartitionHashStrategy, mergedPreSortedPartitionHashStrategy, mergedPeerGroupHashStrategy);
+        this.inMemoryPagesIndexWithHashStrategies = new PagesIndexWithHashStrategies(
+                pagesIndexFactory,
+                sourceTypes,
+                expectedPositions,
+                preGroupedChannels,
+                unGroupedPartitionChannels,
+                preSortedChannels,
+                sortChannels);
+        this.mergedPagesIndexWithHashStrategies = new PagesIndexWithHashStrategies(
+                pagesIndexFactory,
+                sourceTypes,
+                expectedPositions,
+                // merged pages are grouped on all partition channels
+                partitionChannels,
+                ImmutableList.of(),
+                // merged pages are pre sorted on all sort channels
+                sortChannels,
+                sortChannels);
 
         this.producePagesIndexes = new ProducePagesIndexes(
+                inMemoryPagesIndexWithHashStrategies,
                 aggregatedRevocableMemoryContext,
                 aggregatedNonRevocableMemoryContext,
                 sourceTypes,
                 spillerFactory,
                 spillEnabled);
         this.outputPages = WorkProcessor.create(this.producePagesIndexes)
-                .flatMap(new MergeSpilledFilesAndInMemoryIndex(sourceTypes, orderChannels, ordering))
+                .flatMap(new MergeSpilledFilesAndInMemoryIndex(mergedPagesIndexWithHashStrategies, sourceTypes, orderChannels, ordering))
                 .flatMap(new ProduceWindowPartitions())
                 .transform(new ProduceWindowResults());
 
@@ -383,45 +370,28 @@ public class WindowOperator
         driverWindowInfo.set(Optional.of(windowInfo.build()));
     }
 
-    private class PagesIndexWithHashStrategies
+    private static class PagesIndexWithHashStrategies
     {
-        private final PagesIndex pagesIndex;
-        private final PagesHashStrategy preGroupedPartitionHashStrategy;
-        private final PagesHashStrategy unGroupedPartitionHashStrategy;
-        private final PagesHashStrategy preSortedPartitionHashStrategy;
-        private final PagesHashStrategy peerGroupHashStrategy;
+        final PagesIndex pagesIndex;
+        final PagesHashStrategy preGroupedPartitionHashStrategy;
+        final PagesHashStrategy unGroupedPartitionHashStrategy;
+        final PagesHashStrategy preSortedPartitionHashStrategy;
+        final PagesHashStrategy peerGroupHashStrategy;
 
-        public PagesIndexWithHashStrategies(
-                PagesIndex pagesIndex,
-                PagesHashStrategy preGroupedPartitionHashStrategy,
-                PagesHashStrategy unGroupedPartitionHashStrategy,
-                PagesHashStrategy preSortedPartitionHashStrategy,
-                PagesHashStrategy peerGroupHashStrategy) {
-            this.pagesIndex = pagesIndex;
-            this.preGroupedPartitionHashStrategy = preGroupedPartitionHashStrategy;
-            this.unGroupedPartitionHashStrategy = unGroupedPartitionHashStrategy;
-            this.preSortedPartitionHashStrategy = preSortedPartitionHashStrategy;
-            this.peerGroupHashStrategy = peerGroupHashStrategy;
-        }
-
-        public PagesIndex getPagesIndex() {
-            return pagesIndex;
-        }
-
-        public PagesHashStrategy getPreGroupedPartitionHashStrategy() {
-            return preGroupedPartitionHashStrategy;
-        }
-
-        public PagesHashStrategy getUnGroupedPartitionHashStrategy() {
-            return unGroupedPartitionHashStrategy;
-        }
-
-        public PagesHashStrategy getPreSortedPartitionHashStrategy() {
-            return preSortedPartitionHashStrategy;
-        }
-
-        public PagesHashStrategy getPeerGroupHashStrategy() {
-            return peerGroupHashStrategy;
+        PagesIndexWithHashStrategies(
+                PagesIndex.Factory pagesIndexFactory,
+                List<Type> sourceTypes,
+                int expectedPositions,
+                List<Integer> preGroupedPartitionChannels,
+                List<Integer> unGroupedPartitionChannels,
+                List<Integer> preSortedChannels,
+                List<Integer> sortChannels)
+        {
+            this.pagesIndex = pagesIndexFactory.newPagesIndex(sourceTypes, expectedPositions);
+            this.preGroupedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(preGroupedPartitionChannels, OptionalInt.empty());
+            this.unGroupedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(unGroupedPartitionChannels, OptionalInt.empty());
+            this.preSortedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(preSortedChannels, OptionalInt.empty());
+            this.peerGroupHashStrategy = pagesIndex.createPagesHashStrategy(sortChannels, OptionalInt.empty());
         }
     }
 
@@ -471,9 +441,7 @@ public class WindowOperator
         @Override
         public WorkProcessor<WindowPartition> apply(PagesIndexWithHashStrategies pagesIndexWithHashStrategies)
         {
-            PagesIndex pagesIndex = pagesIndexWithHashStrategies.getPagesIndex();
-            PagesHashStrategy currentUnGroupedPartitionHashStrategy = pagesIndexWithHashStrategies.getUnGroupedPartitionHashStrategy();
-            PagesHashStrategy currentPeerGroupHashStrategy = pagesIndexWithHashStrategies.getPeerGroupHashStrategy();
+            PagesIndex pagesIndex = pagesIndexWithHashStrategies.pagesIndex;
             return WorkProcessor.create(new WorkProcessor.Process<WindowPartition>()
             {
                 int partitionStart;
@@ -485,10 +453,9 @@ public class WindowOperator
                         return finished();
                     }
 
+                    int partitionEnd = findGroupEnd(pagesIndex, pagesIndexWithHashStrategies.unGroupedPartitionHashStrategy, partitionStart);
 
-                    int partitionEnd = findGroupEnd(pagesIndex, currentUnGroupedPartitionHashStrategy, partitionStart);
-
-                    WindowPartition partition = new WindowPartition(pagesIndex, partitionStart, partitionEnd, outputChannels, windowFunctions, currentPeerGroupHashStrategy);
+                    WindowPartition partition = new WindowPartition(pagesIndex, partitionStart, partitionEnd, outputChannels, windowFunctions, pagesIndexWithHashStrategies.peerGroupHashStrategy);
                     windowInfo.addPartition(partition);
                     partitionStart = partitionEnd;
 
@@ -500,21 +467,18 @@ public class WindowOperator
 
     private class PagesIndexWithSpiller
     {
-        private final PagesIndex pagesIndex;
-        private final Optional<Spiller> spiller;
+        final PagesIndexWithHashStrategies pagesIndexWithHashStrategies;
+        final Optional<Spiller> spiller;
 
-        public PagesIndexWithSpiller(
-                PagesIndex pagesIndex,
-                Optional<Spiller> spiller) {
-            this.pagesIndex = pagesIndex;
+        PagesIndexWithSpiller(
+                PagesIndexWithHashStrategies pagesIndexWithHashStrategies,
+                Optional<Spiller> spiller)
+        {
+            this.pagesIndexWithHashStrategies = pagesIndexWithHashStrategies;
             this.spiller = spiller;
         }
 
-        public PagesIndex getPagesIndex() {
-            return pagesIndex;
-        }
-
-        public List<WorkProcessor<Page>> getSpilledPages()
+        List<WorkProcessor<Page>> getSpilledPages()
         {
             if (!spiller.isPresent()) {
                 return ImmutableList.of();
@@ -529,12 +493,13 @@ public class WindowOperator
     private class ProducePagesIndexes
             implements WorkProcessor.Process<PagesIndexWithSpiller>
     {
+        private final PagesIndexWithHashStrategies inMemoryPagesIndexWithHashStrategies;
         private final LocalMemoryContext localRevocableMemoryContext;
         private final LocalMemoryContext localNonRevocableMemoryContext;
         private final LocalMemoryContext localMemoryContextCurrentlyInUse;
-
         private final SpillerFactory spillerFactory;
         private final boolean spillEnabled;
+
         private Optional<Spiller> spiller;
         private boolean resetPagesIndex;
         private ListenableFuture<?> spillInProgress = immediateFuture(null);
@@ -542,12 +507,14 @@ public class WindowOperator
         private Optional<Page> currentSpillGroupRowPage;
 
         private ProducePagesIndexes(
+                PagesIndexWithHashStrategies inMemoryPagesIndexWithHashStrategies,
                 AggregatedMemoryContext aggregatedRevocableMemoryContext,
                 AggregatedMemoryContext aggregatedNonRevocableMemoryContext,
                 List<Type> sourceTypes,
                 SpillerFactory spillerFactory,
                 boolean spillEnabled)
         {
+            this.inMemoryPagesIndexWithHashStrategies = inMemoryPagesIndexWithHashStrategies;
             this.localNonRevocableMemoryContext = aggregatedNonRevocableMemoryContext.newLocalMemoryContext(ProducePagesIndexes.class.getSimpleName());
             this.localRevocableMemoryContext = aggregatedRevocableMemoryContext.newLocalMemoryContext(ProducePagesIndexes.class.getSimpleName());
 
@@ -570,9 +537,9 @@ public class WindowOperator
         public WorkProcessor.ProcessorState<PagesIndexWithSpiller> process()
         {
             if (resetPagesIndex) {
-                inMemoryPagesIndex.clear();
+                inMemoryPagesIndexWithHashStrategies.pagesIndex.clear();
                 resetPagesIndex = false;
-                localMemoryContextCurrentlyInUse.setBytes(inMemoryPagesIndex.getEstimatedSize().toBytes());
+                localMemoryContextCurrentlyInUse.setBytes(inMemoryPagesIndexWithHashStrategies.pagesIndex.getEstimatedSize().toBytes());
 
                 if (spiller.isPresent()) {
                     spiller.get().close();
@@ -582,23 +549,23 @@ public class WindowOperator
                 currentSpillGroupRowPage = Optional.empty();
             }
 
-            if (operatorFinishing && pendingInput == null && inMemoryPagesIndex.getPositionCount() == 0 && !spiller.isPresent()) {
+            if (operatorFinishing && pendingInput == null && inMemoryPagesIndexWithHashStrategies.pagesIndex.getPositionCount() == 0 && !spiller.isPresent()) {
                 localRevocableMemoryContext.close();
                 localNonRevocableMemoryContext.close();
                 return finished();
             }
 
             if (pendingInput != null) {
-                pendingInput = updatePagesIndex(inMemoryPagesIndex, pendingInput, inMemoryPreGroupedPartitionHashStrategy, currentSpillGroupRowPage);
-                localMemoryContextCurrentlyInUse.setBytes(inMemoryPagesIndex.getEstimatedSize().toBytes());
+                pendingInput = updatePagesIndex(inMemoryPagesIndexWithHashStrategies, pendingInput, currentSpillGroupRowPage);
+                localMemoryContextCurrentlyInUse.setBytes(inMemoryPagesIndexWithHashStrategies.pagesIndex.getEstimatedSize().toBytes());
             }
 
             // If we have unused input or are finishing, then we have buffered a full group
             if (pendingInput != null || operatorFinishing) {
-                finishPagesIndex(inMemoryPagesIndex, inMemoryPreSortedPartitionHashStrategy);
+                sortPagesIndexIfNecessary(inMemoryPagesIndexWithHashStrategies);
 
                 if (!spiller.isPresent()) {
-                    windowInfo.addIndex(inMemoryPagesIndex);
+                    windowInfo.addIndex(inMemoryPagesIndexWithHashStrategies.pagesIndex);
                 }
 
                 resetPagesIndex = true;
@@ -606,11 +573,11 @@ public class WindowOperator
                 // Switch memory accounting for inMemoryPagesIndex to use non revocable memory since inMemoryPagesIndex's memory
                 // should not be revoked when it is being used for constructing partitions
                 if (spillEnabled && localRevocableMemoryContext.getBytes() > 0) {
-                        localNonRevocableMemoryContext.setBytes(localRevocableMemoryContext.getBytes());
-                        localRevocableMemoryContext.setBytes(0);
+                    localNonRevocableMemoryContext.setBytes(localRevocableMemoryContext.getBytes());
+                    localRevocableMemoryContext.setBytes(0);
                 }
 
-                return ofResult(new PagesIndexWithSpiller(inMemoryPagesIndex, spiller));
+                return ofResult(new PagesIndexWithSpiller(inMemoryPagesIndexWithHashStrategies, spiller));
             }
 
             // pendingInput == null && !operatorFinishing
@@ -628,14 +595,14 @@ public class WindowOperator
                         operatorContext.newAggregateSystemMemoryContext()));
             }
 
-            if (inMemoryPagesIndex.getPositionCount() == 0) {
+            if (inMemoryPagesIndexWithHashStrategies.pagesIndex.getPositionCount() == 0) {
                 return spillInProgress;
             }
 
-            inMemoryPagesIndex.sort(orderChannels, ordering);
-            spillInProgress = spiller.get().spill(inMemoryPagesIndex.getSortedPages());
+            inMemoryPagesIndexWithHashStrategies.pagesIndex.sort(orderChannels, ordering);
+            spillInProgress = spiller.get().spill(inMemoryPagesIndexWithHashStrategies.pagesIndex.getSortedPages());
 
-            Page topPage = inMemoryPagesIndex.getSortedPages().next();
+            Page topPage = inMemoryPagesIndexWithHashStrategies.pagesIndex.getSortedPages().next();
             currentSpillGroupRowPage = Optional.of(topPage.getRegion(topPage.getPositionCount() - 1, 1));
 
             return spillInProgress;
@@ -655,24 +622,26 @@ public class WindowOperator
 
         public void finishRevokeMemory()
         {
-            inMemoryPagesIndex.clear();
-            localRevocableMemoryContext.setBytes(inMemoryPagesIndex.getEstimatedSize().toBytes());
+            inMemoryPagesIndexWithHashStrategies.pagesIndex.clear();
+            localRevocableMemoryContext.setBytes(inMemoryPagesIndexWithHashStrategies.pagesIndex.getEstimatedSize().toBytes());
         }
     }
 
     private class MergeSpilledFilesAndInMemoryIndex
             implements Function<PagesIndexWithSpiller, WorkProcessor<PagesIndexWithHashStrategies>>
     {
+        private final PagesIndexWithHashStrategies mergedPagesIndexWithHashStrategies;
         private final List<Type> sourceTypes;
         private final PageWithPositionComparator pageWithPositionComparator;
 
         private MergeSpilledFilesAndInMemoryIndex(
+                PagesIndexWithHashStrategies mergedPagesIndexWithHashStrategies,
                 List<Type> sourceTypes,
                 List<Integer> orderChannels,
                 List<SortOrder> sortOrders)
         {
+            this.mergedPagesIndexWithHashStrategies = mergedPagesIndexWithHashStrategies;
             this.sourceTypes = sourceTypes;
-
             this.pageWithPositionComparator = new SimplePageWithPositionComparator(sourceTypes, orderChannels, sortOrders);
         }
 
@@ -680,19 +649,18 @@ public class WindowOperator
         public WorkProcessor<PagesIndexWithHashStrategies> apply(PagesIndexWithSpiller pagesIndexWithSpiller)
         {
             List<WorkProcessor<Page>> spilledPages = pagesIndexWithSpiller.getSpilledPages();
-            PagesIndex pagesIndex = pagesIndexWithSpiller.getPagesIndex();
 
             if (spilledPages.isEmpty()) {
-                return WorkProcessor.fromIterable(ImmutableList.of(inMemoryPagesIndexWithHashStrategies));
+                return WorkProcessor.fromIterable(ImmutableList.of(pagesIndexWithSpiller.pagesIndexWithHashStrategies));
             }
 
-            return mergeSpilledPagesAndCurrentPagesIndex(pagesIndex, spilledPages)
-                        .transform(new ProducePagesIndexesFromSortedPages(operatorContext.localUserMemoryContext()));
+            return mergeSpilledPagesAndCurrentPagesIndex(pagesIndexWithSpiller.pagesIndexWithHashStrategies, spilledPages)
+                    .transform(new ProducePagesIndexesFromSortedPages(mergedPagesIndexWithHashStrategies, operatorContext.localUserMemoryContext()));
         }
 
-        public WorkProcessor<Page> mergeSpilledPagesAndCurrentPagesIndex(PagesIndex currentPagesIndex, List<WorkProcessor<Page>> spilledPages)
+        public WorkProcessor<Page> mergeSpilledPagesAndCurrentPagesIndex(PagesIndexWithHashStrategies pagesIndexWithHashStrategies, List<WorkProcessor<Page>> spilledPages)
         {
-            WorkProcessor<Page> pageIndexPages = WorkProcessor.fromIterator(currentPagesIndex.getSortedPages());
+            WorkProcessor<Page> pageIndexPages = WorkProcessor.fromIterator(pagesIndexWithHashStrategies.pagesIndex.getSortedPages());
 
             spilledPages.add(pageIndexPages);
 
@@ -708,12 +676,16 @@ public class WindowOperator
     private class ProducePagesIndexesFromSortedPages
             implements WorkProcessor.Transformation<Page, PagesIndexWithHashStrategies>
     {
+        private PagesIndexWithHashStrategies mergedPagesIndexWithHashStrategies;
         private LocalMemoryContext localMemoryContext;
         private boolean resetPagesIndex;
         private Page pendingInput;
 
-        private ProducePagesIndexesFromSortedPages(LocalMemoryContext localMemoryContext)
+        private ProducePagesIndexesFromSortedPages(
+                PagesIndexWithHashStrategies mergedPagesIndexWithHashStrategies,
+                LocalMemoryContext localMemoryContext)
         {
+            this.mergedPagesIndexWithHashStrategies = mergedPagesIndexWithHashStrategies;
             this.localMemoryContext = localMemoryContext;
         }
 
@@ -722,12 +694,12 @@ public class WindowOperator
         {
             boolean finishing = !inputPageOptional.isPresent();
             if (resetPagesIndex) {
-                mergedPagesIndex.clear();
+                mergedPagesIndexWithHashStrategies.pagesIndex.clear();
                 resetPagesIndex = false;
-                localMemoryContext.setBytes(mergedPagesIndex.getEstimatedSize().toBytes());
+                localMemoryContext.setBytes(mergedPagesIndexWithHashStrategies.pagesIndex.getEstimatedSize().toBytes());
             }
 
-            if (finishing && pendingInput == null && mergedPagesIndex.getPositionCount() == 0) {
+            if (finishing && pendingInput == null && mergedPagesIndexWithHashStrategies.pagesIndex.getPositionCount() == 0) {
                 return finished();
             }
 
@@ -737,15 +709,15 @@ public class WindowOperator
 
             if (pendingInput != null) {
                 // No current spilled rows during merging on disk pages and in memory indexes
-                pendingInput = updatePagesIndex(mergedPagesIndex,pendingInput, mergedPreGroupedPartitionHashStrategy, Optional.empty());
+                pendingInput = updatePagesIndex(mergedPagesIndexWithHashStrategies, pendingInput, Optional.empty());
             }
 
             // If we have unused input or are finishing, then we have buffered a full group
             if (pendingInput != null || finishing) {
-                finishPagesIndex(mergedPagesIndex, mergedPreSortedPartitionHashStrategy);
-                windowInfo.addIndex(mergedPagesIndex);
+                sortPagesIndexIfNecessary(mergedPagesIndexWithHashStrategies);
+                windowInfo.addIndex(mergedPagesIndexWithHashStrategies.pagesIndex);
                 resetPagesIndex = true;
-                return ofResult(mergedPagesIndexWithHashStrategies, false);
+                return ofResult(WindowOperator.this.mergedPagesIndexWithHashStrategies, false);
             }
 
             // pendingInput == null && !operatorFinishing
@@ -753,39 +725,36 @@ public class WindowOperator
         }
     }
 
-    private void sortPagesIndexIfNecessary(PagesIndex currentPagesIndex, PagesHashStrategy preSortedPartitionHashStrategy)
+    private void sortPagesIndexIfNecessary(PagesIndexWithHashStrategies pagesIndexWithHashStrategies)
     {
-        if (currentPagesIndex.getPositionCount() > 1 && !orderChannels.isEmpty()) {
+        if (pagesIndexWithHashStrategies.pagesIndex.getPositionCount() > 1 && !orderChannels.isEmpty()) {
             int startPosition = 0;
-            while (startPosition < currentPagesIndex.getPositionCount()) {
-                int endPosition = findGroupEnd(currentPagesIndex, preSortedPartitionHashStrategy, startPosition);
-                currentPagesIndex.sort(orderChannels, ordering, startPosition, endPosition);
+            while (startPosition < pagesIndexWithHashStrategies.pagesIndex.getPositionCount()) {
+                int endPosition = findGroupEnd(pagesIndexWithHashStrategies.pagesIndex, pagesIndexWithHashStrategies.preSortedPartitionHashStrategy, startPosition);
+                pagesIndexWithHashStrategies.pagesIndex.sort(orderChannels, ordering, startPosition, endPosition);
                 startPosition = endPosition;
             }
         }
     }
 
-    private void finishPagesIndex(PagesIndex currentPagesIndex, PagesHashStrategy preSortedPartitionHashStrategy)
-    {
-        sortPagesIndexIfNecessary(currentPagesIndex, preSortedPartitionHashStrategy);
-    }
-
-    private Page updatePagesIndex(PagesIndex pagesIndex, Page page, PagesHashStrategy pagesHashStrategy, Optional<Page> currentSpillGroupRowPage)
+    private Page updatePagesIndex(PagesIndexWithHashStrategies pagesIndexWithHashStrategies, Page page, Optional<Page> currentSpillGroupRowPage)
     {
         checkArgument(page.getPositionCount() > 0);
 
         // TODO: Fix pagesHashStrategy to allow specifying channels for comparison, it currently requires us to rearrange the right side blocks in consecutive channel order
         Page preGroupedPage = rearrangePage(page, preGroupedChannels);
 
+        PagesIndex pagesIndex = pagesIndexWithHashStrategies.pagesIndex;
+        PagesHashStrategy preGroupedPartitionHashStrategy = pagesIndexWithHashStrategies.preGroupedPartitionHashStrategy;
         if (currentSpillGroupRowPage.isPresent()) {
-            if (!pagesHashStrategy.rowEqualsRow(0, extractColumns(currentSpillGroupRowPage.get(), preGroupedChannels), 0, preGroupedPage)) {
+            if (!preGroupedPartitionHashStrategy.rowEqualsRow(0, extractColumns(currentSpillGroupRowPage.get(), preGroupedChannels), 0, preGroupedPage)) {
                 return page;
             }
         }
 
-        if (pagesIndex.getPositionCount() == 0 || pagesIndex.positionEqualsRow(pagesHashStrategy, 0, 0, preGroupedPage)) {
+        if (pagesIndex.getPositionCount() == 0 || pagesIndex.positionEqualsRow(preGroupedPartitionHashStrategy, 0, 0, preGroupedPage)) {
             // Find the position where the pre-grouped columns change
-            int groupEnd = findGroupEnd(preGroupedPage, pagesHashStrategy, 0);
+            int groupEnd = findGroupEnd(preGroupedPage, preGroupedPartitionHashStrategy, 0);
 
             // Add the section of the page that contains values for the current group
             pagesIndex.addPage(page.getRegion(0, groupEnd));
