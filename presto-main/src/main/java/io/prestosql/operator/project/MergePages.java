@@ -152,6 +152,7 @@ public class MergePages
 
         private void appendPage(Page page)
         {
+            page = page.getLoadedPage();
             pageBuilder.declarePositions(page.getPositionCount());
             for (int channel = 0; channel < types.size(); channel++) {
                 Type type = types.get(channel);
