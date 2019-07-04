@@ -153,6 +153,24 @@ public class TestPageProcessor
     }
 
     @Test
+    public void testSelectAllFilterLazyBlock()
+    {
+        PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(new InputPageProjection(0, BIGINT), new InputPageProjection(1, BIGINT)), OptionalInt.of(MAX_BATCH_SIZE));
+
+        LazyBlock inputFilterBlock = lazyWrapper(createLongSequenceBlock(0, 100));
+        LazyBlock inputProjectionBlock = lazyWrapper(createLongSequenceBlock(100, 200));
+        Page inputPage = new Page(inputFilterBlock, inputProjectionBlock);
+
+        Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, new DriverYieldSignal(), newSimpleAggregatedMemoryContext(), inputPage, true);
+
+        List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
+        assertTrue(inputFilterBlock.isLoaded());
+        assertFalse(inputProjectionBlock.isLoaded());
+        assertEquals(outputPages.size(), 1);
+        assertPageEquals(ImmutableList.of(BIGINT, BIGINT), outputPages.get(0).orElse(null), new Page(createLongSequenceBlock(0, 100), createLongSequenceBlock(100, 200)));
+    }
+
+    @Test
     public void testSelectNoneFilter()
     {
         PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectNoneFilter()), ImmutableList.of(new InputPageProjection(0, BIGINT)));
@@ -500,13 +518,29 @@ public class TestPageProcessor
 
     private Iterator<Optional<Page>> processAndAssertRetainedPageSize(PageProcessor pageProcessor, DriverYieldSignal yieldSignal, AggregatedMemoryContext memoryContext, Page inputPage)
     {
+        return processAndAssertRetainedPageSize(pageProcessor, yieldSignal, memoryContext, inputPage, false);
+    }
+
+    private Iterator<Optional<Page>> processAndAssertRetainedPageSize(
+            PageProcessor pageProcessor,
+            DriverYieldSignal yieldSignal,
+            AggregatedMemoryContext memoryContext,
+            Page inputPage,
+            boolean avoidPageMaterialization)
+    {
         Iterator<Optional<Page>> output = pageProcessor.process(
                 SESSION,
                 yieldSignal,
                 memoryContext.newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                inputPage);
+                inputPage,
+                avoidPageMaterialization);
         assertEquals(memoryContext.getBytes(), 0);
         return output;
+    }
+
+    private static LazyBlock lazyWrapper(Block block)
+    {
+        return new LazyBlock(block.getPositionCount(), lazyBlock -> lazyBlock.setBlock(block.getLoadedBlock()));
     }
 
     private static class InvocationCountPageProjection

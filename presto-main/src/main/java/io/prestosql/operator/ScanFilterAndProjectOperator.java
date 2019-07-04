@@ -50,6 +50,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.prestosql.SystemSessionProperties.isWorkProcessorPipelines;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.operator.PageUtils.recordMaterializedBytes;
 import static io.prestosql.operator.WorkProcessor.TransformationState.finished;
@@ -255,7 +256,8 @@ public class ScanFilterAndProjectOperator
                             session.toConnectorSession(),
                             yieldSignal,
                             outputMemoryContext,
-                            page))
+                            page,
+                            isWorkProcessorPipelines(session)))
                     .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
                     .withProcessStateMonitor(state -> memoryContext.setBytes(localAggregatedMemoryContext.getBytes()));
         }
