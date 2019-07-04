@@ -27,6 +27,7 @@ public final class PageUtils
 
     public static Page recordMaterializedBytes(Page page, LongConsumer sizeInBytesConsumer)
     {
+        boolean allNonLazy = true;
         // account processed bytes from lazy blocks only when they are loaded
         Block[] blocks = new Block[page.getChannelCount()];
         for (int i = 0; i < page.getChannelCount(); ++i) {
@@ -38,12 +39,18 @@ public final class PageUtils
                     sizeInBytesConsumer.accept(loadedBlock.getSizeInBytes());
                     lazyBlock.setBlock(loadedBlock);
                 });
+                allNonLazy = false;
             }
             else {
                 sizeInBytesConsumer.accept(block.getSizeInBytes());
                 blocks[i] = block;
             }
         }
+
+        if (allNonLazy) {
+            return page;
+        }
+
         return new Page(page.getPositionCount(), blocks);
     }
 }
