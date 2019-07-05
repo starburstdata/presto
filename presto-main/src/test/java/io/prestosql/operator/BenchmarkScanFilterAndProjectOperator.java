@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.prestosql.SequencePageBuilder;
 import io.prestosql.Session;
+import io.prestosql.SystemSessionProperties;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.metadata.Metadata;
@@ -98,7 +99,7 @@ public class BenchmarkScanFilterAndProjectOperator
 {
     private static final Map<String, Type> TYPE_MAP = ImmutableMap.of("bigint", BIGINT, "varchar", VARCHAR);
 
-    private static final Session TEST_SESSION = TestingSession.testSessionBuilder().build();
+    private static final Session TEST_SESSION = TestingSession.testSessionBuilder().setSystemProperty(SystemSessionProperties.WORK_PROCESSOR_PIPELINES, "true").build();
     private static final Metadata METADATA = createTestMetadataManager();
     private static final TypeAnalyzer TYPE_ANALYZER = new TypeAnalyzer(new SqlParser(), METADATA);
 
@@ -214,14 +215,14 @@ public class BenchmarkScanFilterAndProjectOperator
             ImmutableList.Builder<RowExpression> builder = ImmutableList.builder();
             if (type == BIGINT) {
                 for (int i = 0; i < columnCount; i++) {
-                    builder.add(rowExpression("bigint" + i + " + 5"));
+                    builder.add(rowExpression("bigint" + i));
                 }
             }
             else if (type == VARCHAR) {
                 for (int i = 0; i < columnCount; i++) {
                     // alternatively use identity expression rowExpression("varchar" + i, type) or
                     // rowExpression("substr(varchar" + i + ", 1, 1)", type)
-                    builder.add(rowExpression("concat(varchar" + i + ", 'foo')"));
+                    builder.add(rowExpression("varchar" + i));
                 }
             }
             return builder.build();

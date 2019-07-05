@@ -125,13 +125,13 @@ public class PageProcessorBenchmark
         cursorProcessor = new ExpressionCompiler(metadata, pageFunctionCompiler).compileCursorProcessor(Optional.of(getFilter(type)), projections, "key").get();
     }
 
-    @Benchmark
+    /*@Benchmark
     public Page rowOriented()
     {
         PageBuilder pageBuilder = new PageBuilder(types);
         cursorProcessor.process(null, yieldSignal, recordSet.cursor(), pageBuilder);
         return pageBuilder.build();
-    }
+    }*/
 
     @Benchmark
     public List<Optional<Page>> columnOriented()
@@ -141,7 +141,8 @@ public class PageProcessorBenchmark
                         null,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        inputPage));
+                        inputPage,
+                        true));
     }
 
     private RowExpression getFilter(Type type)
@@ -160,14 +161,14 @@ public class PageProcessorBenchmark
         ImmutableList.Builder<RowExpression> builder = ImmutableList.builder();
         if (type == BIGINT) {
             for (int i = 0; i < columnCount; i++) {
-                builder.add(rowExpression("bigint" + i + " + 5"));
+                builder.add(rowExpression("bigint" + i));
             }
         }
         else if (type == VARCHAR) {
             for (int i = 0; i < columnCount; i++) {
                 // alternatively use identity expression rowExpression("varchar" + i, type) or
                 // rowExpression("substr(varchar" + i + ", 1, 1)", type)
-                builder.add(rowExpression("concat(varchar" + i + ", 'foo')"));
+                builder.add(rowExpression("varchar" + i));
             }
         }
         return builder.build();
