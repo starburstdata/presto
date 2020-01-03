@@ -92,8 +92,8 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AwsAccessKey }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AwsSecretKey }}
           AWS_REGION: 'us-east-2'
-          SOURCE_DIR: '/tmp'
-          DEST_DIR: "{{ job.container.id }}/foo.bar"
+          SOURCE_DIR: '/tmp/report'
+          DEST_DIR: "${{ job.container.id }}/foo"
 
 #  kudu-tests:
 #    runs-on: ubuntu-latest
