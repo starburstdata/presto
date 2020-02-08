@@ -369,7 +369,8 @@ public class TestHashJoinOperator
         TaskStateMachine taskStateMachine = new TaskStateMachine(new TaskId("query", 0, 0), executor);
         TaskContext taskContext = TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, taskStateMachine);
 
-        DriverContext joinDriverContext = taskContext.addPipelineContext(2, true, true, false).addDriverContext();
+        PipelineContext pipelineContext = taskContext.addPipelineContext(2, true, true, false);
+        DriverContext joinDriverContext = pipelineContext.addDriverContext();
 
         // force a yield for every match in LookupJoinOperator, set called to true after first
         AtomicBoolean called = new AtomicBoolean(false);
@@ -397,7 +398,7 @@ public class TestHashJoinOperator
                 .pageBreak()
                 .addSequencePage(20, 0, 123_000)
                 .addSequencePage(10, 30, 123_000);
-        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactoryManager, probePages, joinSpillerFactory);
+        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactoryManager, probePages, 2, joinSpillerFactory);
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -405,6 +406,9 @@ public class TestHashJoinOperator
         int buildOperatorCount = buildDrivers.size();
         checkState(buildOperatorCount == whenSpill.size());
         LookupSourceFactory lookupSourceFactory = lookupSourceFactoryManager.getJoinBridge(Lifespan.taskWide());
+
+        // create another join operator which finishes immediately to simulate early finish
+        joinOperatorFactory.createOperator(pipelineContext.addDriverContext()).close();
 
         try (Operator joinOperator = joinOperatorFactory.createOperator(joinDriverContext)) {
             // build lookup source
@@ -1418,6 +1422,11 @@ public class TestHashJoinOperator
 
     private OperatorFactory innerJoinOperatorFactory(JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager, RowPagesBuilder probePages, PartitioningSpillerFactory partitioningSpillerFactory)
     {
+        return innerJoinOperatorFactory(lookupSourceFactoryManager, probePages, 1, partitioningSpillerFactory);
+    }
+
+    private OperatorFactory innerJoinOperatorFactory(JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager, RowPagesBuilder probePages, int totalOperatorsCount, PartitioningSpillerFactory partitioningSpillerFactory)
+    {
         return LOOKUP_JOIN_OPERATORS.innerJoin(
                 0,
                 new PlanNodeId("test"),
@@ -1426,7 +1435,7 @@ public class TestHashJoinOperator
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
-                OptionalInt.of(1),
+                OptionalInt.of(totalOperatorsCount),
                 partitioningSpillerFactory);
     }
 

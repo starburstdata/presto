@@ -644,12 +644,39 @@ public class LookupJoinOperator
                 // `afterClose` must be run last.
                 // Closer is documented to mimic try-with-resource, which implies close will happen in reverse order.
                 closer.register(afterClose::run);
-
+                closer.register(this::finishProbeGracefully);
                 closer.register(sourcePagesJoiner::close);
                 sourcePagesJoiner.getSpiller().ifPresent(closer::register);
             }
             catch (IOException e) {
                 throw new RuntimeException(e);
+            }
+        }
+
+        private void finishProbeGracefully()
+        {
+            if (partitionedConsumption == null) {
+                partitionedConsumption = lookupSourceFactory.finishProbeOperator(lookupJoinsCount);
+                addSuccessCallback(partitionedConsumption, this::finishProbeGracefully);
+                return;
+            }
+
+            if (lookupPartitions == null) {
+                lookupPartitions = getDone(partitionedConsumption).beginConsumption();
+            }
+
+            if (previousPartition != null) {
+                if (!previousPartitionLookupSource.isDone()) {
+                    addSuccessCallback(previousPartitionLookupSource, this::finishProbeGracefully);
+                    return;
+                }
+                previousPartition.release();
+            }
+
+            if (lookupPartitions.hasNext()) {
+                previousPartition = lookupPartitions.next();
+                previousPartitionLookupSource = previousPartition.load();
+                addSuccessCallback(previousPartitionLookupSource, this::finishProbeGracefully);
             }
         }
     }
