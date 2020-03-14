@@ -601,7 +601,11 @@ public class LocalExecutionPlanner
         private List<OperatorFactory> handleLateMaterialization(List<OperatorFactoryWithTypes> operatorFactoryWithTypes)
         {
             if (isLateMaterializationEnabled(taskContext.getSession())) {
-                return WorkProcessorPipelineSourceOperator.convertOperators(getNextOperatorId(), operatorFactoryWithTypes);
+                return WorkProcessorPipelineSourceOperator.convertOperators(
+                        getNextOperatorId(),
+                        operatorFactoryWithTypes,
+                        getFilterAndProjectMinOutputPageSize(taskContext.getSession()),
+                        getFilterAndProjectMinOutputPageRowCount(taskContext.getSession()));
             }
             else {
                 return operatorFactoryWithTypes.stream()
