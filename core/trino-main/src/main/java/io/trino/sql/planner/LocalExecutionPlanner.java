@@ -592,18 +592,33 @@ public class LocalExecutionPlanner
 
         public void addDriverFactory(boolean inputDriver, boolean outputDriver, PhysicalOperation physicalOperation, OptionalInt driverInstances)
         {
-            addDriverFactory(
-                    inputDriver,
-                    outputDriver,
-                    physicalOperation.getOperatorFactories(),
-                    driverInstances,
-                    physicalOperation.getPipelineExecutionStrategy());
+            List<OperatorFactoryWithTypes> operatorFactoryWithTypes = physicalOperation.getOperatorFactoriesWithTypes();
+            validateFirstOperatorFactory(inputDriver, operatorFactoryWithTypes.get(0).getOperatorFactory(), physicalOperation.getPipelineExecutionStrategy());
+            List<OperatorFactory> operatorFactories = handleLateMaterialization(operatorFactoryWithTypes);
+            driverFactories.add(new DriverFactory(getNextPipelineId(), inputDriver, outputDriver, operatorFactories, driverInstances, physicalOperation.getPipelineExecutionStrategy()));
+        }
+
+        private List<OperatorFactory> handleLateMaterialization(List<OperatorFactoryWithTypes> operatorFactoryWithTypes)
+        {
+            if (isLateMaterializationEnabled(taskContext.getSession())) {
+                return WorkProcessorPipelineSourceOperator.convertOperators(getNextOperatorId(), operatorFactoryWithTypes);
+            }
+            else {
+                return operatorFactoryWithTypes.stream()
+                        .map(OperatorFactoryWithTypes::getOperatorFactory)
+                        .collect(toImmutableList());
+            }
         }
 
         public void addDriverFactory(boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances, PipelineExecutionStrategy pipelineExecutionStrategy)
         {
+            validateFirstOperatorFactory(inputDriver, operatorFactories.get(0), pipelineExecutionStrategy);
+            driverFactories.add(new DriverFactory(getNextPipelineId(), inputDriver, outputDriver, operatorFactories, driverInstances, pipelineExecutionStrategy));
+        }
+
+        private void validateFirstOperatorFactory(boolean inputDriver, OperatorFactory firstOperatorFactory, PipelineExecutionStrategy pipelineExecutionStrategy)
+        {
             if (pipelineExecutionStrategy == GROUPED_EXECUTION) {
-                OperatorFactory firstOperatorFactory = operatorFactories.get(0);
                 if (inputDriver) {
                     checkArgument(firstOperatorFactory instanceof ScanFilterAndProjectOperatorFactory || firstOperatorFactory instanceof TableScanOperatorFactory);
                 }
@@ -611,12 +626,6 @@ public class LocalExecutionPlanner
                     checkArgument(firstOperatorFactory instanceof LocalExchangeSourceOperatorFactory || firstOperatorFactory instanceof LookupOuterOperatorFactory);
                 }
             }
-
-            if (isLateMaterializationEnabled(taskContext.getSession())) {
-                operatorFactories = WorkProcessorPipelineSourceOperator.convertOperators(getNextOperatorId(), operatorFactories);
-            }
-
-            driverFactories.add(new DriverFactory(getNextPipelineId(), inputDriver, outputDriver, operatorFactories, driverInstances, pipelineExecutionStrategy));
         }
 
         private List<DriverFactory> getDriverFactories()
@@ -746,6 +755,28 @@ public class LocalExecutionPlanner
         public StageExecutionDescriptor getStageExecutionDescriptor()
         {
             return stageExecutionDescriptor;
+        }
+    }
+
+    public static class OperatorFactoryWithTypes
+    {
+        private final OperatorFactory operatorFactory;
+        private final List<Type> types;
+
+        public OperatorFactoryWithTypes(OperatorFactory operatorFactory, List<Type> types)
+        {
+            this.operatorFactory = requireNonNull(operatorFactory, "operatorFactory is null");
+            this.types = requireNonNull(types, "types is null");
+        }
+
+        public OperatorFactory getOperatorFactory()
+        {
+            return operatorFactory;
+        }
+
+        public List<Type> getTypes()
+        {
+            return types;
         }
     }
 
@@ -3241,7 +3272,7 @@ public class LocalExecutionPlanner
      */
     private static class PhysicalOperation
     {
-        private final List<OperatorFactory> operatorFactories;
+        private final List<OperatorFactoryWithTypes> operatorFactoriesWithTypes;
         private final Map<Symbol, Integer> layout;
         private final List<Type> types;
 
@@ -3275,12 +3306,12 @@ public class LocalExecutionPlanner
             requireNonNull(source, "source is null");
             requireNonNull(pipelineExecutionStrategy, "pipelineExecutionStrategy is null");
 
-            this.operatorFactories = ImmutableList.<OperatorFactory>builder()
-                    .addAll(source.map(PhysicalOperation::getOperatorFactories).orElse(ImmutableList.of()))
-                    .add(operatorFactory)
+            this.types = toTypes(layout, typeProvider);
+            this.operatorFactoriesWithTypes = ImmutableList.<OperatorFactoryWithTypes>builder()
+                    .addAll(source.map(PhysicalOperation::getOperatorFactoriesWithTypes).orElse(ImmutableList.of()))
+                    .add(new OperatorFactoryWithTypes(operatorFactory, types))
                     .build();
             this.layout = ImmutableMap.copyOf(layout);
-            this.types = toTypes(layout, typeProvider);
             this.pipelineExecutionStrategy = pipelineExecutionStrategy;
         }
 
@@ -3317,7 +3348,14 @@ public class LocalExecutionPlanner
 
         private List<OperatorFactory> getOperatorFactories()
         {
-            return operatorFactories;
+            return operatorFactoriesWithTypes.stream()
+                    .map(OperatorFactoryWithTypes::getOperatorFactory)
+                    .collect(toImmutableList());
+        }
+
+        private List<OperatorFactoryWithTypes> getOperatorFactoriesWithTypes()
+        {
+            return operatorFactoriesWithTypes;
         }
 
         public PipelineExecutionStrategy getPipelineExecutionStrategy()
