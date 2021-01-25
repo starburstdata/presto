@@ -78,7 +78,8 @@ public class WorkProcessorPipelineSourceOperator
     public static List<OperatorFactory> convertOperators(
             List<OperatorFactoryWithTypes> operatorFactoriesWithTypes,
             DataSize minOutputPageSize,
-            int minOutputPageRowCount)
+            int minOutputPageRowCount,
+            double maxSmallPagesRowRatio)
     {
         if (operatorFactoriesWithTypes.isEmpty() || !(operatorFactoriesWithTypes.get(0).getOperatorFactory() instanceof WorkProcessorSourceOperatorFactory)) {
             return toOperatorFactories(operatorFactoriesWithTypes);
@@ -106,7 +107,8 @@ public class WorkProcessorPipelineSourceOperator
                         workProcessorOperatorFactories,
                         operatorFactoriesWithTypes.get(operatorIndex - 1).getTypes(),
                         minOutputPageSize,
-                        minOutputPageRowCount))
+                        minOutputPageRowCount,
+                        maxSmallPagesRowRatio))
                 .addAll(toOperatorFactories(operatorFactoriesWithTypes.subList(operatorIndex, operatorFactoriesWithTypes.size())))
                 .build();
     }
@@ -124,7 +126,8 @@ public class WorkProcessorPipelineSourceOperator
             List<WorkProcessorOperatorFactory> operatorFactories,
             List<Type> outputTypes,
             DataSize minOutputPageSize,
-            int minOutputPageRowCount)
+            int minOutputPageRowCount,
+            double maxSmallPagesRowRatio)
     {
         requireNonNull(driverContext, "driverContext is null");
         requireNonNull(sourceOperatorFactory, "sourceOperatorFactory is null");
@@ -187,6 +190,7 @@ public class WorkProcessorPipelineSourceOperator
                 outputTypes,
                 minOutputPageSize.toBytes(),
                 minOutputPageRowCount,
+                maxSmallPagesRowRatio,
                 processor,
                 operatorContext.aggregateUserMemoryContext()));
 
@@ -720,6 +724,7 @@ public class WorkProcessorPipelineSourceOperator
         private final List<Type> outputTypes;
         private final DataSize minOutputPageSize;
         private final int minOutputPageRowCount;
+        private final double maxSmallPagesRowRatio;
         private boolean closed;
 
         private WorkProcessorPipelineSourceOperatorFactory(
@@ -727,13 +732,15 @@ public class WorkProcessorPipelineSourceOperator
                 List<WorkProcessorOperatorFactory> operatorFactories,
                 List<Type> outputTypes,
                 DataSize minOutputPageSize,
-                int minOutputPageRowCount)
+                int minOutputPageRowCount,
+                double maxSmallPagesRowRatio)
         {
             this.sourceOperatorFactory = requireNonNull(sourceOperatorFactory, "sourceOperatorFactory is null");
             this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
             this.outputTypes = requireNonNull(outputTypes, "outputTypes is null");
             this.minOutputPageSize = requireNonNull(minOutputPageSize, "minOutputPageSize is null");
             this.minOutputPageRowCount = minOutputPageRowCount;
+            this.maxSmallPagesRowRatio = maxSmallPagesRowRatio;
         }
 
         @Override
@@ -752,7 +759,8 @@ public class WorkProcessorPipelineSourceOperator
                     operatorFactories,
                     outputTypes,
                     minOutputPageSize,
-                    minOutputPageRowCount);
+                    minOutputPageRowCount,
+                    maxSmallPagesRowRatio);
         }
 
         @Override

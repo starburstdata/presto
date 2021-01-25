@@ -38,6 +38,7 @@ import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
+import static io.trino.spi.session.PropertyMetadata.doubleProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
@@ -99,6 +100,7 @@ public final class SystemSessionProperties
     public static final String FORCE_SINGLE_NODE_OUTPUT = "force_single_node_output";
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE = "filter_and_project_min_output_page_size";
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT = "filter_and_project_min_output_page_row_count";
+    public static final String MERGE_PAGES_MAX_SMALL_PAGES_ROW_RATIO = "merge_pages_max_small_pages_row_ratio";
     public static final String DISTRIBUTED_SORT = "distributed_sort";
     public static final String MAX_RECURSION_DEPTH = "max_recursion_depth";
     public static final String USE_MARK_DISTINCT = "use_mark_distinct";
@@ -420,6 +422,11 @@ public final class SystemSessionProperties
                         FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT,
                         "Experimental: Minimum output page row count for filter and project operators",
                         featuresConfig.getFilterAndProjectMinOutputPageRowCount(),
+                        false),
+                doubleProperty(
+                        MERGE_PAGES_MAX_SMALL_PAGES_ROW_RATIO,
+                        "Experimental: Maximum fraction of rows that are part of unmerged pages",
+                        featuresConfig.getMergePagesMaxSmallPagesRowRatio(),
                         false),
                 booleanProperty(
                         DISTRIBUTED_SORT,
@@ -854,6 +861,11 @@ public final class SystemSessionProperties
     public static int getFilterAndProjectMinOutputPageRowCount(Session session)
     {
         return session.getSystemProperty(FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT, Integer.class);
+    }
+
+    public static double getMergePagesMaxSmallPagesRowRatio(Session session)
+    {
+        return session.getSystemProperty(MERGE_PAGES_MAX_SMALL_PAGES_ROW_RATIO, Double.class);
     }
 
     public static boolean useMarkDistinct(Session session)
