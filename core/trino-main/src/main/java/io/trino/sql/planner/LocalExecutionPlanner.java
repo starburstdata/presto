@@ -1770,6 +1770,7 @@ public class LocalExecutionPlanner
                             lookupSourceFactoryManager,
                             probeSource.getTypes(),
                             false,
+                            false,
                             probeChannels,
                             probeHashChannel,
                             Optional.empty(),
@@ -2142,7 +2143,15 @@ public class LocalExecutionPlanner
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory =
                     createLookupSourceFactory(node, buildNode, buildSymbols, buildHashSymbol, probeSource, context, spillEnabled, localDynamicFilters);
 
-            OperatorFactory operator = createLookupJoin(node, probeSource, probeSymbols, probeHashSymbol, lookupSourceFactory, context, spillEnabled);
+            OperatorFactory operator = createLookupJoin(
+                    node,
+                    probeSource,
+                    probeSymbols,
+                    probeHashSymbol,
+                    lookupSourceFactory,
+                    context,
+                    spillEnabled,
+                    !localDynamicFilters.isEmpty());
 
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
             List<Symbol> outputSymbols = node.getOutputSymbols();
@@ -2344,7 +2353,8 @@ public class LocalExecutionPlanner
                 Optional<Symbol> probeHashSymbol,
                 JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactoryManager,
                 LocalExecutionPlanContext context,
-                boolean spillEnabled)
+                boolean spillEnabled,
+                boolean consumedLocalDynamicFilters)
         {
             List<Type> probeTypes = probeSource.getTypes();
             List<Integer> probeOutputChannels = ImmutableList.copyOf(getChannelsForSymbols(node.getLeftOutputSymbols(), probeSource.getLayout()));
@@ -2363,6 +2373,9 @@ public class LocalExecutionPlanner
                             .map(JoinNode.EquiJoinClause::getRight)
                             .collect(toImmutableSet())
                             .containsAll(node.getRightOutputSymbols());
+            // Wait for build side to be collected before local dynamic filters are
+            // consumed by table scan. This way table scan can filter data more efficiently.
+            boolean waitForBuild = consumedLocalDynamicFilters;
             switch (node.getType()) {
                 case INNER:
                     return lookupJoinOperators.innerJoin(
@@ -2371,6 +2384,7 @@ public class LocalExecutionPlanner
                             lookupSourceFactoryManager,
                             probeTypes,
                             outputSingleMatch,
+                            waitForBuild,
                             probeJoinChannels,
                             probeHashChannel,
                             Optional.of(probeOutputChannels),
@@ -2391,7 +2405,18 @@ public class LocalExecutionPlanner
                             partitioningSpillerFactory,
                             blockTypeOperators);
                 case RIGHT:
-                    return lookupJoinOperators.lookupOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactoryManager, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels), totalOperatorsCount, partitioningSpillerFactory, blockTypeOperators);
+                    return lookupJoinOperators.lookupOuterJoin(
+                            context.getNextOperatorId(),
+                            node.getId(),
+                            lookupSourceFactoryManager,
+                            probeTypes,
+                            waitForBuild,
+                            probeJoinChannels,
+                            probeHashChannel,
+                            Optional.of(probeOutputChannels),
+                            totalOperatorsCount,
+                            partitioningSpillerFactory,
+                            blockTypeOperators);
                 case FULL:
                     return lookupJoinOperators.fullOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactoryManager, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels), totalOperatorsCount, partitioningSpillerFactory, blockTypeOperators);
                 default:
