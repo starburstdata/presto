@@ -158,7 +158,7 @@ public final class MergePages
             }
 
             totalPositions += inputPage.getPositionCount();
-            boolean isPartiallyLoaded = isPartiallyLoaded(inputPage);
+            boolean isPartiallyLoaded = true;
             // passthrough small lazy page only when total number of rows from such pages is below threshold
             boolean passthroughSmallLazyPage = !isPartiallyLoaded && (totalPositions == 0 || ((double) smallLazyPagesPositions / totalPositions) <= maxSmallPagesRowRatio);
             if (inputPage.getPositionCount() >= minRowCount || passthroughSmallLazyPage || inputPage.getSizeInBytes() >= minPageSizeInBytes) {
