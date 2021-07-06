@@ -15,19 +15,26 @@ package io.trino.operator.partition;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.trino.Session;
 import io.trino.execution.StateMachine;
+import io.trino.execution.buffer.BufferState;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.PartitionedOutputBuffer;
+import io.trino.execution.buffer.SerializedPage;
+import io.trino.jmh.Benchmarks;
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.operator.DriverContext;
 import io.trino.operator.InterpretedHashGenerator;
+import io.trino.operator.OperatorFactories;
+import io.trino.operator.OutputFactory;
 import io.trino.operator.PartitionFunction;
+import io.trino.operator.TaskContext;
+import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.exchange.LocalPartitionGenerator;
-import io.trino.operator.partition.PartitionedOutputOperator.PartitionedOutputFactory;
 import io.trino.spi.Page;
-import io.trino.spi.PageBuilder;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -40,173 +47,286 @@ import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
+import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.runner.RunnerException;
+import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.Session.SessionBuilder;
 import static io.trino.execution.buffer.BufferState.OPEN;
 import static io.trino.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
-import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.operator.PageTestUtils.createDictionaryPageWithRandomData;
+import static io.trino.operator.PageTestUtils.createPageWithRandomData;
+import static io.trino.operator.PageTestUtils.createRlePageWithRandomData;
+import static io.trino.operator.PageTestUtils.createUpdatedBlockTypesWithHashBlockAndNullBlock;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TestingTypeManager.createMapType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.util.Collections.nCopies;
+import static java.util.Collections.unmodifiableList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @State(Scope.Thread)
 @OutputTimeUnit(MILLISECONDS)
-@Fork(2)
-@Warmup(iterations = 20, time = 500, timeUnit = MILLISECONDS)
-@Measurement(iterations = 20, time = 500, timeUnit = MILLISECONDS)
+@Fork(3)
+@Warmup(iterations = 5, time = 500, timeUnit = MILLISECONDS)
+@Measurement(iterations = 10, time = 500, timeUnit = MILLISECONDS)
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkPartitionedOutputOperator
 {
+    private static final OperatorFactories OPERATOR_FACTORIES = new TrinoOperatorFactories();
+
     @Benchmark
     public void addPage(BenchmarkData data)
     {
-        PartitionedOutputOperator operator = data.createPartitionedOutputOperator();
-        for (int i = 0; i < data.getPageCount(); i++) {
-            operator.addInput(data.getDataPage());
+        addPage(data, OPERATOR_FACTORIES, testSessionBuilder());
+    }
+
+    protected void addPage(BenchmarkData data, OperatorFactories operatorFactories, SessionBuilder sessionBuilder)
+    {
+        PartitionedOutputOperator operator = data.createPartitionedOutputOperator(operatorFactories, sessionBuilder);
+        for (int i = 0; i < data.pageCount; i++) {
+            operator.addInput(data.dataPage);
         }
         operator.finish();
+    }
+
+    @Test
+    public void verifyAddPage()
+    {
+        BenchmarkData data = new BenchmarkData();
+        data.setup();
+        new BenchmarkPartitionedOutputOperator().addPage(data);
     }
 
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        private static final int PAGE_COUNT = 5000;
-        private static final int PARTITION_COUNT = 512;
-        private static final int ENTRIES_PER_PAGE = 256;
-        private static final DataSize MAX_MEMORY = DataSize.of(1, GIGABYTE);
-        private static final RowType rowType = RowType.anonymous(ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR));
-        private static final List<Type> TYPES = ImmutableList.of(BIGINT, rowType, rowType, rowType);
+        private static final int PARTITION_COUNT = 256;
+        private static final int POSITION_COUNT = 8192;
+        private static final DataSize MAX_PARTITION_BUFFER_SIZE = DataSize.of(256, MEGABYTE);
         private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("BenchmarkPartitionedOutputOperator-executor-%s"));
         private static final ScheduledExecutorService SCHEDULER = newScheduledThreadPool(1, daemonThreadsNamed("BenchmarkPartitionedOutputOperator-scheduledExecutor-%s"));
 
-        private final Page dataPage = createPage();
+        @SuppressWarnings("unused")
+        @Param({"true", "false"})
+        private boolean enableCompression;
 
-        private int getPageCount()
+        @Param({"1", "2"})
+        private int channelCount = 1;
+
+        @Param({
+                "BIGINT",
+                "DICTIONARY(BIGINT)",
+                "RLE(BIGINT)",
+                "LONG_DECIMAL",
+                "INTEGER",
+                "SMALLINT",
+                "BOOLEAN",
+                "VARCHAR",
+                "ARRAY(BIGINT)",
+                "ARRAY(VARCHAR)",
+                "ARRAY(ARRAY(BIGINT))",
+                "MAP(BIGINT,BIGINT)",
+                "MAP(BIGINT,MAP(BIGINT,BIGINT))",
+                "ROW(BIGINT,BIGINT)",
+                "ROW(ARRAY(BIGINT),ARRAY(BIGINT))"
+        })
+        private String type = "BIGINT";
+
+        @SuppressWarnings("unused")
+        @Param({"true", "false"})
+        private boolean hasNull = true;
+
+        private List<Type> types;
+        private int pageCount;
+        private Page dataPage;
+
+        @Setup
+        public void setup()
         {
-            return PAGE_COUNT;
+            createPages(type);
         }
 
-        public Page getDataPage()
+        private void createPages(String inputType)
         {
-            return dataPage;
+            float primitiveNullRate = 0.0f;
+            float nestedNullRate = 0.0f;
+
+            if (hasNull) {
+                primitiveNullRate = 0.2f;
+                nestedNullRate = 0.2f;
+            }
+            switch (inputType) {
+                case "BIGINT":
+                    types = nCopies(channelCount, BIGINT);
+                    dataPage = createPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
+                    pageCount = 5000;
+                    break;
+                case "DICTIONARY(BIGINT)":
+                    types = nCopies(channelCount, BIGINT);
+                    dataPage = createDictionaryPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
+                    pageCount = 3000;
+                    break;
+                case "RLE(BIGINT)":
+                    types = nCopies(channelCount, BIGINT);
+                    dataPage = createRlePageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
+                    pageCount = 3000;
+                    break;
+                case "LONG_DECIMAL":
+                    types = nCopies(channelCount, createDecimalType(MAX_SHORT_PRECISION + 1));
+                    dataPage = createPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
+                    pageCount = 5000;
+                    break;
+                case "INTEGER":
+                    types = nCopies(channelCount, INTEGER);
+                    dataPage = createPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
+                    pageCount = 5000;
+                    break;
+                case "SMALLINT":
+                    types = nCopies(channelCount, SMALLINT);
+                    dataPage = createPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
+                    pageCount = 5000;
+                    break;
+                case "BOOLEAN":
+                    types = nCopies(channelCount, BOOLEAN);
+                    dataPage = createPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
+                    pageCount = 5000;
+                    break;
+                case "VARCHAR":
+                    types = nCopies(channelCount, VARCHAR);
+                    dataPage = createPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
+                    pageCount = 5000;
+                    break;
+                case "ARRAY(BIGINT)":
+                    types = nCopies(channelCount, new ArrayType(BIGINT));
+                    dataPage = createPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
+                    pageCount = 1000;
+                    break;
+                case "ARRAY(VARCHAR)":
+                    types = nCopies(channelCount, new ArrayType(VARCHAR));
+                    dataPage = createPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
+                    pageCount = 1000;
+                    break;
+                case "ARRAY(ARRAY(BIGINT))":
+                    types = nCopies(channelCount, new ArrayType(new ArrayType(BIGINT)));
+                    dataPage = createPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
+                    pageCount = 1000;
+                    break;
+                case "MAP(BIGINT,BIGINT)":
+                    types = nCopies(channelCount, createMapType(BIGINT, BIGINT));
+                    dataPage = createPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
+                    pageCount = 1000;
+                    break;
+                case "MAP(BIGINT,MAP(BIGINT,BIGINT))":
+                    types = nCopies(channelCount, createMapType(BIGINT, createMapType(BIGINT, BIGINT)));
+                    dataPage = createPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
+                    pageCount = 1000;
+                    break;
+                case "ROW(BIGINT,BIGINT)":
+                    types = nCopies(channelCount, withDefaultFieldNames(ImmutableList.of(BIGINT, BIGINT)));
+                    dataPage = createPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
+                    pageCount = 1000;
+                    break;
+                case "ROW(ARRAY(BIGINT),ARRAY(BIGINT))":
+                    types = nCopies(channelCount, withDefaultFieldNames(ImmutableList.of(new ArrayType(BIGINT), new ArrayType(BIGINT))));
+                    dataPage = createPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
+                    pageCount = 1000;
+                    break;
+
+                default:
+                    throw new UnsupportedOperationException("Unsupported dataType");
+            }
+            // We built the dataPage with added pre-computed hash block at channel 0, so types needs to be updated
+            types = createUpdatedBlockTypesWithHashBlockAndNullBlock(types, true, false);
         }
 
-        private PartitionedOutputOperator createPartitionedOutputOperator()
+        private PartitionedOutputBuffer createPartitionedOutputBuffer()
         {
-            BlockTypeOperators blockTypeOperators = new BlockTypeOperators(new TypeOperators());
-            PartitionFunction partitionFunction = new LocalPartitionGenerator(
-                    new InterpretedHashGenerator(ImmutableList.of(BIGINT), new int[] {0}, blockTypeOperators),
-                    PARTITION_COUNT);
-            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(createTestMetadataManager().getBlockEncodingSerde(), false);
             OutputBuffers buffers = createInitialEmptyOutputBuffers(PARTITIONED);
             for (int partition = 0; partition < PARTITION_COUNT; partition++) {
                 buffers = buffers.withBuffer(new OutputBuffers.OutputBufferId(partition), partition);
             }
             PartitionedOutputBuffer buffer = createPartitionedBuffer(
                     buffers.withNoMoreBufferIds(),
-                    DataSize.ofBytes(Long.MAX_VALUE)); // don't let output buffer block
-            PartitionedOutputFactory operatorFactory = new PartitionedOutputFactory(
+                    DataSize.of(Long.MAX_VALUE, BYTE)); // don't let output buffer block
+
+            return buffer;
+        }
+
+        private PartitionedOutputOperator createPartitionedOutputOperator(OperatorFactories operatorFactories, SessionBuilder sessionBuilder)
+        {
+            BlockTypeOperators blockTypeOperators = new BlockTypeOperators(new TypeOperators());
+            PartitionFunction partitionFunction = new LocalPartitionGenerator(
+                    new InterpretedHashGenerator(ImmutableList.of(BIGINT), new int[] {0}, blockTypeOperators),
+                    PARTITION_COUNT);
+            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(createTestMetadataManager().getBlockEncodingSerde(), enableCompression);
+
+            PartitionedOutputBuffer buffer = createPartitionedOutputBuffer();
+            TaskContext taskContext = createTaskContext(sessionBuilder);
+
+            OutputFactory operatorFactory = operatorFactories.partitionedOutput(
+                    taskContext,
                     partitionFunction,
                     ImmutableList.of(0),
                     ImmutableList.of(Optional.empty()),
                     false,
                     OptionalInt.empty(),
                     buffer,
-                    DataSize.of(1, GIGABYTE));
+                    MAX_PARTITION_BUFFER_SIZE);
             return (PartitionedOutputOperator) operatorFactory
-                    .createOutputOperator(0, new PlanNodeId("plan-node-0"), TYPES, Function.identity(), serdeFactory)
-                    .createOperator(createDriverContext());
+                    .createOutputOperator(0, new PlanNodeId("plan-node-0"), types, Function.identity(), serdeFactory)
+                    .createOperator(createDriverContext(taskContext));
         }
 
-        private Page createPage()
+        private DriverContext createDriverContext(TaskContext taskContext)
         {
-            List<Object>[] testRows = generateTestRows(ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR), ENTRIES_PER_PAGE);
-            PageBuilder pageBuilder = new PageBuilder(TYPES);
-            BlockBuilder bigintBlockBuilder = pageBuilder.getBlockBuilder(0);
-            BlockBuilder rowBlockBuilder = pageBuilder.getBlockBuilder(1);
-            BlockBuilder rowBlockBuilder2 = pageBuilder.getBlockBuilder(2);
-            BlockBuilder rowBlockBuilder3 = pageBuilder.getBlockBuilder(3);
-            for (int i = 0; i < ENTRIES_PER_PAGE; i++) {
-                BIGINT.writeLong(bigintBlockBuilder, i);
-                writeRow(testRows[i], rowBlockBuilder);
-                writeRow(testRows[i], rowBlockBuilder2);
-                writeRow(testRows[i], rowBlockBuilder3);
-            }
-            pageBuilder.declarePositions(ENTRIES_PER_PAGE);
-            return pageBuilder.build();
-        }
-
-        private void writeRow(List<Object> testRow, BlockBuilder rowBlockBuilder)
-        {
-            BlockBuilder singleRowBlockWriter = rowBlockBuilder.beginBlockEntry();
-            for (Object fieldValue : testRow) {
-                if (fieldValue instanceof String) {
-                    VARCHAR.writeSlice(singleRowBlockWriter, utf8Slice((String) fieldValue));
-                }
-                else {
-                    throw new UnsupportedOperationException();
-                }
-            }
-            rowBlockBuilder.closeEntry();
-        }
-
-        // copied & modifed from TestRowBlock
-        private List<Object>[] generateTestRows(List<Type> fieldTypes, int numRows)
-        {
-            @SuppressWarnings("unchecked")
-            List<Object>[] testRows = new List[numRows];
-            for (int i = 0; i < numRows; i++) {
-                List<Object> testRow = new ArrayList<>(fieldTypes.size());
-                for (int j = 0; j < fieldTypes.size(); j++) {
-                    if (fieldTypes.get(j) == VARCHAR) {
-                        byte[] data = new byte[ThreadLocalRandom.current().nextInt(128)];
-                        ThreadLocalRandom.current().nextBytes(data);
-                        testRow.add(new String(data, ISO_8859_1));
-                    }
-                    else {
-                        throw new UnsupportedOperationException();
-                    }
-                }
-                testRows[i] = testRow;
-            }
-            return testRows;
-        }
-
-        private DriverContext createDriverContext()
-        {
-            return TestingTaskContext.builder(EXECUTOR, SCHEDULER, TEST_SESSION)
-                    .setMemoryPoolSize(MAX_MEMORY)
-                    .build()
+            return taskContext
                     .addPipelineContext(0, true, true, false)
                     .addDriverContext();
         }
 
-        private PartitionedOutputBuffer createPartitionedBuffer(OutputBuffers buffers, DataSize dataSize)
+        private TaskContext createTaskContext(SessionBuilder sessionBuilder)
         {
-            return new PartitionedOutputBuffer(
+            Session testSession = sessionBuilder
+                    .setCatalog("tpch")
+                    .setSchema(TINY_SCHEMA_NAME)
+                    .build();
+
+            return TestingTaskContext.builder(EXECUTOR, SCHEDULER, testSession).build();
+        }
+
+        private TestingPartitionedOutputBuffer createPartitionedBuffer(OutputBuffers buffers, DataSize dataSize)
+        {
+            return new TestingPartitionedOutputBuffer(
                     "task-instance-id",
                     new StateMachine<>("bufferState", SCHEDULER, OPEN, TERMINAL_BUFFER_STATES),
                     buffers,
@@ -214,17 +334,70 @@ public class BenchmarkPartitionedOutputOperator
                     () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                     SCHEDULER);
         }
+
+        private static class TestingPartitionedOutputBuffer
+                extends PartitionedOutputBuffer
+        {
+            public TestingPartitionedOutputBuffer(
+                    String taskInstanceId,
+                    StateMachine<BufferState> state,
+                    OutputBuffers outputBuffers,
+                    DataSize maxBufferSize,
+                    Supplier<LocalMemoryContext> systemMemoryContextSupplier,
+                    Executor notificationExecutor)
+            {
+                super(taskInstanceId, state, outputBuffers, maxBufferSize, systemMemoryContextSupplier, notificationExecutor);
+            }
+
+            // Use a dummy enqueue method to avoid OutOfMemory error
+            @Override
+            public void enqueue(int partitionNumber, List<SerializedPage> pages)
+            {
+            }
+        }
+    }
+
+    public static RowType withDefaultFieldNames(List<Type> types)
+    {
+        List<RowType.Field> fields = new ArrayList<>();
+        for (int i = 0; i < types.size(); i++) {
+            fields.add(new RowType.Field(Optional.of("field" + i), types.get(i)));
+        }
+
+        fields = unmodifiableList(fields);
+        return RowType.from(fields);
+    }
+
+    static {
+        try {
+            List<String> types = List.of("BIGINT",
+                    "DICTIONARY(BIGINT)",
+                    "RLE(BIGINT)",
+                    "LONG_DECIMAL",
+                    "INTEGER",
+                    "SMALLINT",
+                    "BOOLEAN",
+                    "VARCHAR",
+                    "ARRAY(BIGINT)");
+            // use multiple types to pollute the profile
+            types.forEach(type -> {
+                BenchmarkData data = new BenchmarkData();
+                data.type = type;
+                data.setup();
+                data.pageCount = 1;
+                new BenchmarkPartitionedOutputOperator().addPage(data);
+            });
+        }
+        catch (Throwable throwable) {
+            throw new RuntimeException(throwable);
+        }
     }
 
     public static void main(String[] args)
-            throws RunnerException
+            throws Exception
     {
-        // assure the benchmarks are valid before running
-        BenchmarkData data = new BenchmarkData();
-        new BenchmarkPartitionedOutputOperator().addPage(data);
-
-        benchmark(BenchmarkPartitionedOutputOperator.class)
-                .withOptions(optionsBuilder -> optionsBuilder.jvmArgs("-Xmx10g"))
-                .run();
+        Benchmarks.benchmark(BenchmarkPartitionedOutputOperator.class)
+                .withOptions(optionsBuilder -> optionsBuilder.jvmArgs("-Xmx16g")
+                ).run();
     }
 }
