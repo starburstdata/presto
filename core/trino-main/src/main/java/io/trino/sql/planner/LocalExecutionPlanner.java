@@ -115,7 +115,6 @@ import io.trino.operator.join.LookupSourceFactory;
 import io.trino.operator.join.NestedLoopJoinBridge;
 import io.trino.operator.join.NestedLoopJoinPagesSupplier;
 import io.trino.operator.join.PartitionedLookupSourceFactory;
-import io.trino.operator.partition.PartitionedOutputOperator.PartitionedOutputFactory;
 import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProjection;
@@ -490,7 +489,8 @@ public class LocalExecutionPlanner
                 outputLayout,
                 types,
                 partitionedSourceOrder,
-                new PartitionedOutputFactory(
+                operatorFactories.partitionedOutput(
+                        taskContext,
                         partitionFunction,
                         partitionChannels,
                         partitionConstants,
