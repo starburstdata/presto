@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.join;
+package io.trino.operator.partition;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -24,7 +24,6 @@ import io.trino.operator.DriverContext;
 import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.exchange.LocalPartitionGenerator;
-import io.trino.operator.partition.PartitionedOutputOperator;
 import io.trino.operator.partition.PartitionedOutputOperator.PartitionedOutputFactory;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
