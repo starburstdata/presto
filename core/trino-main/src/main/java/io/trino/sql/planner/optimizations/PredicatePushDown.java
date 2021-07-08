@@ -635,14 +635,14 @@ public class PredicatePushDown
                             })
                             .map(expression -> {
                                 ComparisonExpression comparison = expression.getComparison();
-                                Symbol leftSymbol = Symbol.from(comparison.getLeft());
-                                Symbol rightSymbol = Symbol.from(comparison.getRight());
-                                boolean alignedComparison = node.getLeft().getOutputSymbols().contains(leftSymbol);
+                                Expression leftExpression = comparison.getLeft();
+                                Expression rightExpression = comparison.getRight();
+                                boolean alignedComparison = isComparisonAligned(node, leftExpression, rightExpression);
                                 return new DynamicFilterExpression(
                                         new ComparisonExpression(
                                                 alignedComparison ? comparison.getOperator() : comparison.getOperator().flip(),
-                                                (alignedComparison ? leftSymbol : rightSymbol).toSymbolReference(),
-                                                (alignedComparison ? rightSymbol : leftSymbol).toSymbolReference()),
+                                                alignedComparison ? leftExpression : rightExpression,
+                                                alignedComparison ? rightExpression : leftExpression),
                                         expression.isNullAllowed());
                             }))
                     .collect(toImmutableList());
@@ -672,15 +672,21 @@ public class PredicatePushDown
                     .stream()
                     .map(clause -> {
                         ComparisonExpression comparison = clause.getComparison();
-                        Symbol probeSymbol = Symbol.from(comparison.getLeft());
+                        Expression probeExpression = comparison.getLeft();
                         Symbol buildSymbol = Symbol.from(comparison.getRight());
-                        Type type = symbolAllocator.getTypes().get(probeSymbol);
+                        Type type = typeAnalyzer.getType(session, symbolAllocator.getTypes(), probeExpression);
                         DynamicFilterId id = requireNonNull(buildSymbolToDynamicFilter.get(buildSymbol), () -> "missing dynamic filter for symbol " + buildSymbol);
-                        return createDynamicFilterExpression(metadata, id, type, probeSymbol.toSymbolReference(), comparison.getOperator(), clause.isNullAllowed());
+                        return createDynamicFilterExpression(metadata, id, type, probeExpression, comparison.getOperator(), clause.isNullAllowed());
                     })
                     .collect(toImmutableList());
             // Return a mapping from build symbols to corresponding dynamic filter IDs:
             return new DynamicFiltersResult(buildSymbolToDynamicFilter.inverse(), predicates);
+        }
+
+        private boolean isComparisonAligned(JoinNode node, Expression leftExpression, Expression rightExpression)
+        {
+            return rightExpression instanceof SymbolReference && node.getRight().getOutputSymbols().contains(Symbol.from(rightExpression))
+                    || leftExpression instanceof SymbolReference && node.getLeft().getOutputSymbols().contains(Symbol.from(leftExpression));
         }
 
         private static Stream<Expression> tryConvertBetweenIntoComparisons(Expression clause)
@@ -1280,7 +1286,19 @@ public class PredicatePushDown
                 }
                 comparison = (ComparisonExpression) expression;
             }
-            return comparison.getLeft() instanceof SymbolReference && comparison.getRight() instanceof SymbolReference;
+
+            return dynamicFilteringApplicable(comparison, leftSymbols, rightSymbols);
+        }
+
+        // sub expression that uses right source has to be a symbol (left can be an arbitrary expression)
+        private boolean dynamicFilteringApplicable(ComparisonExpression comparison, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols)
+        {
+            if (comparison.getRight() instanceof SymbolReference && rightSymbols.contains(Symbol.from(comparison.getRight()))) {
+                // right is a symbol and there is NO MISALIGNMENT between comparison order and left/right source order
+                return true;
+            }
+            // left is a symbol and there is MISALIGNMENT between comparison order and left/right source order so the left expression references right source
+            return comparison.getLeft() instanceof SymbolReference && !leftSymbols.contains(Symbol.from(comparison.getLeft()));
         }
 
         private boolean joinComparisonExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols, Set<ComparisonExpression.Operator> operators)
