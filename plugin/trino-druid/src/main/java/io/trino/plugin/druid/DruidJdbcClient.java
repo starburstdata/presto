@@ -101,7 +101,10 @@ public class DruidJdbcClient
                             tableName));
                 }
             }
-            return tableHandles.stream().findFirst();
+            if (tableHandles.isEmpty()) {
+                return Optional.empty();
+            }
+            return Optional.of(getOnlyElement(tableHandles));
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
