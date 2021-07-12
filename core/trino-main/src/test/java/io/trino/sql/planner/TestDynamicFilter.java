@@ -120,7 +120,7 @@ public class TestDynamicFilter
     }
 
     @Test
-    public void testRightEquiJoinWIthLeftExpression()
+    public void testRightEquiJoinWithLeftExpression()
     {
         assertPlan("SELECT o.orderkey FROM orders o RIGHT JOIN lineitem l ON l.orderkey + 1 = o.orderkey",
                 output(

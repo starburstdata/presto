@@ -1174,12 +1174,6 @@ public final class PlanMatchPattern
         return new GroupingSetDescriptor(groupingKeys, 1, globalGroupingSets);
     }
 
-    public static SymbolMapper symbolMapper(SymbolAliases symbolAliases)
-    {
-        return new SymbolMapper(symbol ->
-                symbolAliases.getOptional(symbol.getName()).map(Symbol::from).orElse(symbol));
-    }
-
     public static class DynamicFilterPattern
     {
         private final Expression probe;
@@ -1198,7 +1192,7 @@ public final class PlanMatchPattern
 
         public DynamicFilterPattern(Expression probe, ComparisonExpression.Operator operator, String buildAlias, boolean nullAllowed)
         {
-            this.probe = probe;
+            this.probe = requireNonNull(probe, "probe is null");
             this.operator = requireNonNull(operator, "operator is null");
             this.build = new SymbolAlias(requireNonNull(buildAlias, "buildAlias is null"));
             this.nullAllowed = nullAllowed;
@@ -1223,6 +1217,11 @@ public final class PlanMatchPattern
                     operator,
                     probeMapped,
                     build.toSymbol(aliases).toSymbolReference());
+        }
+
+        private static SymbolMapper symbolMapper(SymbolAliases symbolAliases)
+        {
+            return new SymbolMapper(symbol -> Symbol.from(symbolAliases.get(symbol.getName())));
         }
 
         @Override
