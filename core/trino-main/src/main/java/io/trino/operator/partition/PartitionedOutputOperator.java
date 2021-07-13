@@ -206,7 +206,7 @@ public class PartitionedOutputOperator
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
-        this.partitionFunction = new PagePartitioner(
+        this.partitionFunction = new BuilderPagePartitioner(
                 partitionFunction,
                 partitionChannels,
                 partitionConstants,
