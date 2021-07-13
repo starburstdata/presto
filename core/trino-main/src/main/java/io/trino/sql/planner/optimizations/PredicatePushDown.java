@@ -1282,17 +1282,9 @@ public class PredicatePushDown
                 comparison = (ComparisonExpression) expression;
             }
 
-            return dynamicFilteringApplicable(comparison, leftSymbols, rightSymbols);
-        }
-
-        // sub expression that uses right source has to be a symbol (left can be an arbitrary expression)
-        private boolean dynamicFilteringApplicable(ComparisonExpression comparison, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols)
-        {
-            // right is a symbol and there is NO MISALIGNMENT between comparison order and left/right source order
-            // or
-            // left is a symbol and there is MISALIGNMENT between comparison order and left/right source order so the left expression references right source
+            // Build side expression must be a symbol reference, since DynamicFilterSourceOperator can only collect column values (not expressions)
             return (comparison.getRight() instanceof SymbolReference && rightSymbols.contains(Symbol.from(comparison.getRight())))
-                    || (comparison.getLeft() instanceof SymbolReference && !leftSymbols.contains(Symbol.from(comparison.getLeft())));
+                    || (comparison.getLeft() instanceof SymbolReference && rightSymbols.contains(Symbol.from(comparison.getLeft())));
         }
 
         private boolean joinComparisonExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols, Set<ComparisonExpression.Operator> operators)
